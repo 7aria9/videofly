@@ -34,6 +34,7 @@ public partial class VideoTile : UserControl
     private readonly VideoFrameRenderer _renderer;
     private Media? _media;
     private bool _closed;
+    private bool _repeat = true; // relecture automatique en fin de média (activée par défaut)
     private long _resumeAtMs;   // reprise à la dernière position (historique), appliquée au premier démarrage
 
     // Avance / retour rapide
@@ -238,6 +239,12 @@ public partial class VideoTile : UserControl
     {
         // Playlist : on enchaîne sur l'élément suivant.
         if (PlayNext()) return;
+        // Fin de la vidéo (ou de la playlist) : on recommence au début si la relecture est activée.
+        if (_repeat && _playlist.Items.Count > 0)
+        {
+            PlayItem(_playlist.Items[0]);
+            return;
+        }
         ShowControls();
         ResetSpeed();
         UpdatePlayPauseGlyph();
@@ -441,6 +448,15 @@ public partial class VideoTile : UserControl
     {
         PlayPauseButton.Content = _player.IsPlaying ? GlyphPause : GlyphPlay;
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ---------------------------------------------------------------- Relecture automatique
+
+    private void RepeatButton_Click(object sender, RoutedEventArgs e)
+    {
+        _repeat = !_repeat;
+        RepeatButton.Foreground = (Brush)FindResource(_repeat ? "AccentBrush" : "FaintTextBrush");
+        RepeatButton.ToolTip = _repeat ? "Relecture automatique : activée" : "Relecture automatique : désactivée";
     }
 
     // ---------------------------------------------------------------- Avance / retour rapide
