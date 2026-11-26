@@ -16,7 +16,8 @@ namespace VideoFly;
 public sealed class VideoFrameRenderer : IDisposable
 {
     private readonly Dispatcher _dispatcher;
-    private readonly object _sync = new();
+    private readonly object _sync = new();        // échanges de pointeurs (très court)
+    private readonly object _bufferLock = new();  // allocation / libération des tampons vs copie vers le bitmap
 
     // LibVLC garde des pointeurs vers ces délégués : il faut les conserver pour éviter le ramasse-miettes.
     private readonly MediaPlayer.LibVLCVideoFormatCb _formatCb;
@@ -24,10 +25,15 @@ public sealed class VideoFrameRenderer : IDisposable
     private readonly MediaPlayer.LibVLCVideoLockCb _lockCb;
     private readonly MediaPlayer.LibVLCVideoDisplayCb _displayCb;
 
-    private IntPtr _decodeBuffer;  // écrit par LibVLC
-    private IntPtr _frontBuffer;   // lu par le thread UI
+    // Triple tampon : LibVLC écrit dans « decode », la dernière image complète attend dans « ready »,
+    // et le thread UI copie « front » dans le bitmap. On échange des pointeurs au lieu de copier les images.
+    private IntPtr _decodeBuffer;
+    private IntPtr _readyBuffer;
+    private IntPtr _frontBuffer;
     private int _width, _height, _stride, _size;
-    private bool _framePending;
+    private bool _frameReady;    // une nouvelle image attend dans _readyBuffer
+    private bool _updateQueued;  // une mise à jour du bitmap est déjà en file sur le thread UI
+    private bool _suspended;     // fenêtre réduite : inutile de dessiner
     private bool _disposed;
     private WriteableBitmap? _bitmap;
 
@@ -60,6 +66,7 @@ public sealed class VideoFrameRenderer : IDisposable
         pitches = (uint)stride;
         lines = (uint)h;
 
+        lock (_bufferLock)
         lock (_sync)
         {
             if (_disposed) return 0;
@@ -69,7 +76,9 @@ public sealed class VideoFrameRenderer : IDisposable
             _stride = stride;
             _size = stride * h;
             _decodeBuffer = Marshal.AllocHGlobal(_size);
+            _readyBuffer = Marshal.AllocHGlobal(_size);
             _frontBuffer = Marshal.AllocHGlobal(_size);
+            _frameReady = false;
         }
 
         _dispatcher.BeginInvoke(() =>
@@ -88,50 +97,85 @@ public sealed class VideoFrameRenderer : IDisposable
 
     private void OnCleanup(ref IntPtr opaque)
     {
+        lock (_bufferLock)
         lock (_sync) FreeBuffers();
     }
 
     private IntPtr OnLock(IntPtr opaque, IntPtr planes)
     {
+        // _decodeBuffer n'est modifié que par les rappels LibVLC (même thread) : pas besoin de verrou.
         Marshal.WriteIntPtr(planes, _decodeBuffer);
         return IntPtr.Zero;
     }
 
-    private unsafe void OnDisplay(IntPtr opaque, IntPtr picture)
+    private void OnDisplay(IntPtr opaque, IntPtr picture)
     {
         lock (_sync)
         {
             if (_disposed || _decodeBuffer == IntPtr.Zero) return;
-            Buffer.MemoryCopy((void*)_decodeBuffer, (void*)_frontBuffer, _size, _size);
-            if (_framePending) return; // l'UI n'a pas encore affiché la précédente : on la remplace
-            _framePending = true;
+            // L'image décodée devient la prochaine à afficher ; on ne fait qu'échanger les pointeurs.
+            (_decodeBuffer, _readyBuffer) = (_readyBuffer, _decodeBuffer);
+            _frameReady = true;
+            if (_suspended || _updateQueued) return; // l'UI prendra la plus récente quand elle sera libre
+            _updateQueued = true;
         }
-        _dispatcher.BeginInvoke(DispatcherPriority.Render, UpdateBitmap);
+        QueueUpdate();
     }
 
     // ---- Thread UI ----------------------------------------------------------------------
 
+    /// <summary>
+    /// Priorité inférieure aux entrées clavier / souris : même avec plusieurs vidéos lourdes,
+    /// les clics restent traités en premier (les images en trop sont simplement sautées).
+    /// </summary>
+    private void QueueUpdate() => _dispatcher.BeginInvoke(DispatcherPriority.Background, UpdateBitmap);
+
     private void UpdateBitmap()
     {
+        lock (_bufferLock)
+        {
+            IntPtr front;
+            lock (_sync)
+            {
+                _updateQueued = false;
+                if (_disposed || _suspended || !_frameReady || _bitmap == null || _frontBuffer == IntPtr.Zero) return;
+                if (_bitmap.PixelWidth != _width || _bitmap.PixelHeight != _height) return;
+                (_frontBuffer, _readyBuffer) = (_readyBuffer, _frontBuffer);
+                _frameReady = false;
+                front = _frontBuffer;
+            }
+            // Copie hors du verrou d'échange : LibVLC continue de décoder sans attendre l'interface.
+            // _bufferLock empêche seulement la libération des tampons (changement de format) pendant la copie.
+            _bitmap.WritePixels(new Int32Rect(0, 0, _width, _height), front, _size, _stride);
+        }
+    }
+
+    /// <summary>Suspend l'affichage (fenêtre réduite) ; à la reprise, la dernière image est affichée.</summary>
+    public void SetSuspended(bool suspended)
+    {
+        bool queue;
         lock (_sync)
         {
-            _framePending = false;
-            if (_disposed || _bitmap == null || _frontBuffer == IntPtr.Zero) return;
-            if (_bitmap.PixelWidth != _width || _bitmap.PixelHeight != _height) return;
-            _bitmap.WritePixels(new Int32Rect(0, 0, _width, _height), _frontBuffer, _size, _stride);
+            _suspended = suspended;
+            queue = !suspended && _frameReady && !_updateQueued;
+            if (queue) _updateQueued = true;
         }
+        if (queue) QueueUpdate();
     }
 
     private void FreeBuffers()
     {
         if (_decodeBuffer != IntPtr.Zero) Marshal.FreeHGlobal(_decodeBuffer);
+        if (_readyBuffer != IntPtr.Zero) Marshal.FreeHGlobal(_readyBuffer);
         if (_frontBuffer != IntPtr.Zero) Marshal.FreeHGlobal(_frontBuffer);
-        _decodeBuffer = _frontBuffer = IntPtr.Zero;
+        _decodeBuffer = _readyBuffer = _frontBuffer = IntPtr.Zero;
+        _frameReady = false;
     }
 
     /// <summary>À appeler après l'arrêt du lecteur.</summary>
     public void Dispose()
     {
+        lock (_bufferLock)
         lock (_sync)
         {
             _disposed = true;

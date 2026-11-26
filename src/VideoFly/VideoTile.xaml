@@ -180,6 +180,9 @@
                                        Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center" />
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="RepeatButton" Style="{StaticResource TileButton}" Content="&#xE8EE;"
+                                        Foreground="{StaticResource AccentBrush}" Margin="1,0,8,0"
+                                        ToolTip="Relecture automatique : activée" Click="RepeatButton_Click" />
                                 <Button Style="{StaticResource TileButton}" Content="&#xE892;"
                                         ToolTip="Précédent" Click="PreviousButton_Click" />
                                 <Button Style="{StaticResource TileButton}" Content="&#xEB9E;"
