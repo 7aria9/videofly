@@ -21,7 +21,11 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
   ou menu **Vignettes**) : les dispositions proposées dépendent du nombre de vignettes
   (ex. pour 3 : 1 à gauche + 2 à droite, 1 en haut + 2 en bas, 3 côte à côte, 3 l'une sous l'autre…).
   La disposition choisie est réappliquée à chaque ouverture, fermeture ou changement de taille de la fenêtre,
-  jusqu'à ce qu'on déplace une vignette à la main.
+  jusqu'à ce qu'on redimensionne une vignette à la main.
+  Pour choisir la place de chaque vignette : la glisser par son titre sur une autre place
+  (la place visée s'éclaire, les deux vignettes s'échangent), ou clic droit sur le titre ›
+  « Mettre à la place principale ». En choisissant une disposition, chaque vignette va à la place
+  la plus proche de l'endroit où elle se trouve.
 - Menu : **Fichier** (ouvrir une ou plusieurs vidéos, Ctrl+O ; historique ; fermer toutes les vignettes),
   **Vignettes** (dispositions, cascade) et **Options**
 - À l'ouverture, la vignette s'adapte à la taille de la vidéo (désactivable dans les Options)

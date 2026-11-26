@@ -65,6 +65,15 @@ public partial class VideoTile : UserControl
     /// <summary>L'utilisateur a déplacé ou redimensionné la vignette à la main.</summary>
     public event EventHandler? ManuallyArranged;
 
+    /// <summary>Vignette placée par une disposition, en train d'être glissée vers une autre place.</summary>
+    public event EventHandler? LayoutDragMoved;
+
+    /// <summary>Vignette placée par une disposition, lâchée : la fenêtre principale l'échange avec la place visée.</summary>
+    public event EventHandler? LayoutDragDropped;
+
+    /// <summary>Demande à mettre cette vignette à la place principale de la disposition.</summary>
+    public event EventHandler? MoveToMainRequested;
+
     public string FilePath { get; }
 
     /// <summary>Placée par l'organisation automatique : on ne l'adapte pas à la taille de la vidéo.</summary>
@@ -247,6 +256,9 @@ public partial class VideoTile : UserControl
         set => Canvas.SetTop(this, value);
     }
 
+    /// <summary>Position et taille actuelles dans la zone principale.</summary>
+    public Rect Bounds => new(Left, Top, CurrentWidth, CurrentHeight);
+
     private double CurrentWidth => double.IsNaN(Width) ? ActualWidth : Width;
     private double CurrentHeight => double.IsNaN(Height) ? ActualHeight : Height;
 
@@ -262,11 +274,19 @@ public partial class VideoTile : UserControl
     private void TitleThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
         if (IsMaximized || Parent is not Canvas desktop) return;
-        OnManuallyArranged();
         Left += e.HorizontalChange;
         Top += e.VerticalChange;
         KeepInside(desktop);
+        // Dans une disposition automatique, déplacer une vignette sert à choisir sa place (échange au lâcher).
+        if (ArrangedByLayout) LayoutDragMoved?.Invoke(this, EventArgs.Empty);
     }
+
+    private void TitleThumb_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (ArrangedByLayout && !IsMaximized) LayoutDragDropped?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void MoveToMain_Click(object sender, RoutedEventArgs e) => MoveToMainRequested?.Invoke(this, EventArgs.Empty);
 
     private void TitleThumb_DoubleClick(object sender, MouseButtonEventArgs e) => ToggleMaximize();
 
