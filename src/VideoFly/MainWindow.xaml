@@ -27,7 +27,9 @@
                     <Button.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="_Fichier">
-                                <MenuItem Header="_Ouvrir une vidéo…" InputGestureText="Ctrl+O" Click="OpenFile_Click" />
+                                <MenuItem Header="_Ouvrir…" InputGestureText="Ctrl+O" Click="OpenFile_Click" />
+                                <MenuItem Header="Ouvrir une _playlist…" Click="OpenPlaylist_Click" />
+                                <MenuItem Header="_Nouvelle playlist" Click="NewPlaylist_Click" />
                                 <MenuItem x:Name="HistoryMenu" Header="_Historique" SubmenuOpened="HistoryMenu_SubmenuOpened">
                                     <MenuItem Header="…" />
                                 </MenuItem>
@@ -66,11 +68,11 @@
                 <StackPanel x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="48"
                                Foreground="{StaticResource FaintTextBrush}" HorizontalAlignment="Center" />
-                    <TextBlock Text="Aucune vidéo ouverte" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock Text="Aucun média ouvert" FontSize="18" FontWeight="SemiBold"
                                Foreground="{StaticResource TextBrush}" HorizontalAlignment="Center" Margin="0,16,0,6" />
-                    <TextBlock Text="Glissez des fichiers ici ou ouvrez une vidéo (Ctrl+O)" FontSize="13"
+                    <TextBlock Text="Glissez des vidéos, musiques ou playlists ici, ou ouvrez-les (Ctrl+O)" FontSize="13"
                                Foreground="{StaticResource SubtleTextBrush}" HorizontalAlignment="Center" />
-                    <Button Style="{StaticResource AccentButton}" Content="Ouvrir une vidéo" HorizontalAlignment="Center"
+                    <Button Style="{StaticResource AccentButton}" Content="Ouvrir un fichier" HorizontalAlignment="Center"
                             Margin="0,20,0,0" Click="OpenFile_Click" />
                 </StackPanel>
                 <Canvas x:Name="Desktop" Background="Transparent" ClipToBounds="True"

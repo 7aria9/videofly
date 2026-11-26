@@ -1,6 +1,6 @@
 # VideoFly
 
-Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https://github.com/videolan/libvlcsharp)).
+Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https://github.com/videolan/libvlcsharp)).
 
 ## Fonctionnalités
 
@@ -15,7 +15,7 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
 - Dans chaque vignette :
   - lecture / pause (touche Espace pour la vignette active)
   - avance et retour rapides : chaque clic passe à x2, x4, x8, x16, puis revient à la vitesse normale
-  - boutons précédent / suivant (prévus, sans action pour le moment)
+  - boutons précédent / suivant pour se déplacer dans la playlist
   - réglage du volume et coupure du son, barre de progression
 - Organisation automatique des vignettes pour remplir toute la fenêtre (bouton à côté du menu,
   ou menu **Vignettes**) : les dispositions proposées dépendent du nombre de vignettes
@@ -29,6 +29,13 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
 - Menu : **Fichier** (ouvrir une ou plusieurs vidéos, Ctrl+O ; historique ; fermer toutes les vignettes),
   **Vignettes** (dispositions, cascade) et **Options**
 - À l'ouverture, la vignette s'adapte à la taille de la vidéo (désactivable dans les Options)
+- **Audio** : MP3, FLAC, WAV, OGG, Opus, M4A, AAC, WMA… La vignette affiche la pochette, le titre,
+  l'artiste et l'album lus dans les tags du fichier.
+- **Playlists** : chaque vignette a sa playlist (bouton liste dans les commandes).
+  Ajouter (+ ou glisser des fichiers dans la liste), retirer (✕, bouton corbeille ou Suppr),
+  réordonner (glisser un élément ou flèches), vider, double-clic pour lire un élément.
+  Lecture enchaînée automatiquement. Enregistrer / charger au format **M3U / M3U8**
+  (compatible VLC, Winamp, foobar2000…). Fichier › Nouvelle playlist ou Ouvrir une playlist…
 - **Historique** (Fichier › Historique) : les 20 dernières vidéos ouvertes, avec la date ou la position
   où on s'était arrêté. Un clic rouvre la vidéo dans une nouvelle vignette et reprend à cette position.
   « Effacer l'historique » le vide.
@@ -52,7 +59,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.4.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.5.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible

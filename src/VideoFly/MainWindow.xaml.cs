@@ -49,7 +49,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Ouvre une vidéo dans une nouvelle vignette.</summary>
+    /// <summary>Ouvre un fichier vidéo, audio ou une playlist (M3U) dans une nouvelle vignette.</summary>
     /// <param name="resume">Reprendre là où on s'était arrêté (ouverture depuis l'historique).</param>
     public void OpenFile(string path, Point? position = null, bool resume = false)
     {
@@ -59,10 +59,38 @@ public partial class MainWindow : Window
             return;
         }
 
-        var history = _settings.AddToHistory(path);
-        _settings.Save();
+        if (MediaFiles.IsPlaylist(path))
+        {
+            List<string> items;
+            try
+            {
+                items = Playlist.Load(path);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Impossible de lire la playlist :\n{ex.Message}", "VideoFly", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            AddTile(items, position);
+            return;
+        }
 
-        var tile = new VideoTile(path, _settings, resume ? history.ResumePositionMs : 0)
+        long resumeAt = resume ? _settings.FindInHistory(path)?.ResumePositionMs ?? 0 : 0;
+        AddTile(new[] { path }, position, resumeAt);
+    }
+
+    /// <summary>Nouvelle vignette avec une playlist vide, panneau playlist ouvert.</summary>
+    private void NewPlaylist_Click(object sender, RoutedEventArgs e) => AddTile(Array.Empty<string>(), null);
+
+    private void OpenPlaylist_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Title = "Ouvrir une playlist", Filter = MediaFiles.PlaylistFilter + "|Tous les fichiers|*.*" };
+        if (dialog.ShowDialog(this) == true) OpenFile(dialog.FileName);
+    }
+
+    private void AddTile(IEnumerable<string> paths, Point? position, long resumeAtMs = 0)
+    {
+        var tile = new VideoTile(paths, _settings)
         {
             Width = Math.Min(DefaultTileWidth, Math.Max(400, Desktop.ActualWidth)),
             Height = Math.Min(DefaultTileHeight, Math.Max(240, Desktop.ActualHeight)),
@@ -73,6 +101,13 @@ public partial class MainWindow : Window
         tile.LayoutDragMoved += (_, _) => ShowDropTarget(tile);
         tile.LayoutDragDropped += (_, _) => DropTileOnSlot(tile);
         tile.MoveToMainRequested += (_, _) => MoveToMainSlot(tile);
+        tile.ItemStarted += path =>
+        {
+            // Chaque élément lu (vidéo ou audio) rejoint l'historique.
+            if (!File.Exists(path)) return;
+            _settings.AddToHistory(path);
+            _settings.Save();
+        };
 
         Point p = position ?? NextCascadePosition(tile.Width, tile.Height);
         Canvas.SetLeft(tile, Math.Max(0, Math.Min(p.X, Desktop.ActualWidth - tile.Width)));
@@ -83,6 +118,7 @@ public partial class MainWindow : Window
         ActivateTile(tile);
         UpdateEmptyHint();
         ApplyAutoLayout();
+        tile.Start(0, resumeAtMs);
     }
 
     private Point NextCascadePosition(double width, double height)
@@ -101,9 +137,9 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Ouvrir une vidéo",
+            Title = "Ouvrir",
             Multiselect = true,
-            Filter = FileAssociations.OpenDialogFilter,
+            Filter = MediaFiles.OpenFilter,
         };
         if (dialog.ShowDialog(this) == true)
             foreach (var file in dialog.FileNames)
@@ -131,6 +167,7 @@ public partial class MainWindow : Window
 
     private void RememberPosition(VideoTile tile)
     {
+        if (tile.FilePath.Length == 0) return;
         var (position, length) = tile.GetPlaybackPosition();
         _settings.UpdatePosition(tile.FilePath, position, length);
     }
