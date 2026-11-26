@@ -621,14 +621,54 @@ public partial class VideoTile : UserControl
         VolumeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "SubtleTextBrush");
     }
 
-    /// <summary>Molette sur le curseur : ±5 %, avec un arrêt à 100 % pour retrouver facilement le volume normal.</summary>
     private void VolumeSlider_MouseWheel(object sender, MouseWheelEventArgs e)
     {
+        AdjustVolume(e.Delta);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Molette n'importe où sur la vignette : règle son volume (la liste de la playlist, elle, défile normalement).
+    /// </summary>
+    private void Tile_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled) return;
+        AdjustVolume(e.Delta);
+        ShowVolumeBadge();
+        e.Handled = true;
+    }
+
+    /// <summary>±5 % par cran de molette, avec un arrêt à 100 % pour retrouver facilement le volume normal.</summary>
+    private void AdjustVolume(int wheelDelta)
+    {
         double current = VolumeSlider.Value;
-        double next = current + (e.Delta > 0 ? 5 : -5);
+        double next = current + (wheelDelta > 0 ? 5 : -5);
         if ((current < 100 && next > 100) || (current > 100 && next < 100)) next = 100;
         VolumeSlider.Value = Math.Clamp(next, VolumeSlider.Minimum, VolumeSlider.Maximum);
-        e.Handled = true;
+        if (_player.Mute && wheelDelta > 0) _player.Mute = false;
+        UpdateMuteGlyph();
+    }
+
+    private readonly DispatcherTimer _volumeBadgeTimer = new() { Interval = TimeSpan.FromSeconds(1.2) };
+
+    private void ShowVolumeBadge()
+    {
+        int volume = (int)Math.Round(VolumeSlider.Value);
+        bool muted = _player.Mute || volume == 0;
+        VolumeBadgeIcon.Text = muted ? GlyphMute : GlyphVolume;
+        VolumeBadgeText.Text = $"{volume} %";
+        VolumeBadgeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "TextBrush");
+        VolumeBadge.Visibility = Visibility.Visible;
+        _volumeBadgeTimer.Stop();
+        _volumeBadgeTimer.Tick -= HideVolumeBadge;
+        _volumeBadgeTimer.Tick += HideVolumeBadge;
+        _volumeBadgeTimer.Start();
+    }
+
+    private void HideVolumeBadge(object? sender, EventArgs e)
+    {
+        _volumeBadgeTimer.Stop();
+        VolumeBadge.Visibility = Visibility.Collapsed;
     }
 
     private void MuteButton_Click(object sender, RoutedEventArgs e)
@@ -782,6 +822,7 @@ public partial class VideoTile : UserControl
         _uiTimer.Stop();
         _rewindTimer.Stop();
         _hideTimer.Stop();
+        _volumeBadgeTimer.Stop();
         _player.Stop();
         SeekPreviewBox.Visibility = Visibility.Collapsed;
         _seekPreview?.Dispose();

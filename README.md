@@ -25,7 +25,8 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
   moment de lecture et la disposition ; Fichier › Ouvrir une session (ou double-clic sur le fichier .flyv) les
   rouvre, en pause, à la place des vignettes ouvertes.
 - Dans chaque vignette :
-  - volume jusqu'à 250 % (au-delà de 100 %, le son est amplifié ; molette sur le curseur, arrêt à 100 %)
+  - volume jusqu'à 250 % (au-delà de 100 %, le son est amplifié) ; la molette de la souris
+    sur la vignette règle son volume par pas de 5 %, avec un arrêt à 100 %
   - plein écran (bouton en haut de la vignette, F11 ou double-clic sur l'image ; Échap pour sortir) :
     la vignette occupe tout l'écran, les autres continuent en arrière-plan
   - aperçu au survol de la barre de progression : petite image et temps à l'endroit du pointeur
