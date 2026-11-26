@@ -44,12 +44,19 @@ public sealed class VideoFrameRenderer : IDisposable
     public event Action<int, int>? VideoSizeChanged;
 
     private readonly int _maxWidth;
+    private readonly DispatcherPriority _priority;
 
     /// <param name="maxWidth">Si &gt; 0, LibVLC réduit l'image à cette largeur (aperçus : moins de mémoire et de calcul).</param>
-    public VideoFrameRenderer(MediaPlayer player, Dispatcher dispatcher, int maxWidth = 0)
+    /// <param name="priority">
+    /// Priorité d'affichage des images. Par défaut sous les entrées clavier / souris (vidéos en lecture, très nombreuses images) ;
+    /// l'aperçu, qui ne reçoit qu'une image par recherche, passe avant pour suivre le pointeur même pendant qu'il bouge.
+    /// </param>
+    public VideoFrameRenderer(MediaPlayer player, Dispatcher dispatcher, int maxWidth = 0,
+                              DispatcherPriority priority = DispatcherPriority.Background)
     {
         _dispatcher = dispatcher;
         _maxWidth = maxWidth;
+        _priority = priority;
         _formatCb = OnFormat;
         _cleanupCb = OnCleanup;
         _lockCb = OnLock;
@@ -120,8 +127,14 @@ public sealed class VideoFrameRenderer : IDisposable
         return IntPtr.Zero;
     }
 
+    private long _framesDisplayed;
+
+    /// <summary>Nombre d'images reçues de LibVLC (pour savoir si une recherche a bien produit une image).</summary>
+    public long FramesDisplayed => Interlocked.Read(ref _framesDisplayed);
+
     private void OnDisplay(IntPtr opaque, IntPtr picture)
     {
+        Interlocked.Increment(ref _framesDisplayed);
         lock (_sync)
         {
             if (_disposed || _decodeBuffer == IntPtr.Zero) return;
@@ -140,7 +153,7 @@ public sealed class VideoFrameRenderer : IDisposable
     /// Priorité inférieure aux entrées clavier / souris : même avec plusieurs vidéos lourdes,
     /// les clics restent traités en premier (les images en trop sont simplement sautées).
     /// </summary>
-    private void QueueUpdate() => _dispatcher.BeginInvoke(DispatcherPriority.Background, UpdateBitmap);
+    private void QueueUpdate() => _dispatcher.BeginInvoke(_priority, UpdateBitmap);
 
     private void UpdateBitmap()
     {
