@@ -1,6 +1,7 @@
 <UserControl x:Class="VideoFly.VideoTile"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:VideoFly"
              MinWidth="240" MinHeight="160" FontFamily="{StaticResource UiFont}"
              PreviewMouseDown="Tile_PreviewMouseDown" MouseMove="Tile_MouseMove" MouseLeave="Tile_MouseLeave"
              SizeChanged="Tile_SizeChanged">
@@ -15,6 +16,70 @@
             <Setter Property="Height" Value="28" />
             <Setter Property="FontSize" Value="10" />
         </Style>
+        <Style x:Key="PanelButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!-- Lignes de la playlist -->
+        <Style x:Key="PlaylistItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="6,5" Margin="0,1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource PressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="PlaylistItemTemplate" DataType="{x:Type local:PlaylistItem}">
+            <Grid ToolTip="{Binding Path}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="28" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="Num" Text="{Binding Number}" FontSize="11" Foreground="{StaticResource SubtleTextBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="PlayingIcon" Text="&#xE768;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Visibility="Collapsed" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="KindIcon" Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                               Foreground="{StaticResource FaintTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock x:Name="Name" Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <Button x:Name="RemoveButton" Grid.Column="2" Style="{StaticResource PanelButton}" Width="22" Height="22"
+                        FontSize="9" Content="&#xE8BB;" ToolTip="Retirer de la playlist" Visibility="Hidden"
+                        Tag="{Binding}" Click="RemoveItem_Click" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                    <Setter TargetName="Num" Property="Visibility" Value="Hidden" />
+                    <Setter TargetName="PlayingIcon" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="Name" Property="Foreground" Value="{StaticResource AccentBrush}" />
+                    <Setter TargetName="Name" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsAudio}" Value="True">
+                    <Setter TargetName="KindIcon" Property="Text" Value="&#xE8D6;" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter TargetName="RemoveButton" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -25,6 +90,34 @@
                 <!-- Image vidéo : remplit toute la vignette en gardant les proportions -->
                 <Grid x:Name="VideoHost" Background="Black" MouseLeftButtonDown="VideoHost_MouseLeftButtonDown">
                     <Image x:Name="VideoImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear" />
+
+                    <!-- Fichier audio (ou playlist vide) : pochette, titre et artiste à la place de l'image -->
+                    <Grid x:Name="AudioView" Visibility="Collapsed">
+                        <Grid.Background>
+                            <RadialGradientBrush GradientOrigin="0.5,0.35" Center="0.5,0.35" RadiusX="0.8" RadiusY="0.8">
+                                <GradientStop Color="#1E2A44" Offset="0" />
+                                <GradientStop Color="#0E0E11" Offset="1" />
+                            </RadialGradientBrush>
+                        </Grid.Background>
+                        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" Margin="24,48,24,100">
+                            <StackPanel Width="320">
+                                <Border Width="180" Height="180" CornerRadius="14" Background="{StaticResource ElevatedBrush}"
+                                        HorizontalAlignment="Center" ClipToBounds="True">
+                                    <Grid>
+                                        <TextBlock x:Name="AudioIcon" Text="&#xE8D6;" FontFamily="{StaticResource IconFont}"
+                                                   FontSize="64" Foreground="{StaticResource FaintTextBrush}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Image x:Name="CoverImage" Stretch="UniformToFill" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock x:Name="AudioTitle" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Margin="0,18,0,4" />
+                                <TextBlock x:Name="AudioArtist" FontSize="13" Foreground="{StaticResource SubtleTextBrush}"
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Viewbox>
+                    </Grid>
                 </Grid>
 
                 <!-- Bandeau du haut (en surimpression) : glisser pour déplacer, double-clic pour agrandir -->
@@ -101,6 +194,8 @@
 
                             <StackPanel x:Name="VolumePanel" Grid.Column="2" Orientation="Horizontal"
                                         HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="PlaylistButton" Style="{StaticResource TileButton}"
+                                        Content="&#xE8FD;" ToolTip="Playlist" Click="PlaylistButton_Click" />
                                 <Button x:Name="MuteButton" Style="{StaticResource TileButton}"
                                         Content="&#xE767;" ToolTip="Couper le son" Click="MuteButton_Click" />
                                 <Slider x:Name="VolumeSlider" Style="{StaticResource ModernSlider}" Width="72"
@@ -110,6 +205,58 @@
                         </Grid>
                     </StackPanel>
                 </Grid>
+
+                <!-- Panneau playlist (à droite, au-dessus de la vidéo) -->
+                <Border x:Name="PlaylistPanel" HorizontalAlignment="Right" Width="290" Margin="0,44,8,96"
+                        Background="#EE16161A" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        CornerRadius="10" Visibility="Collapsed">
+                    <Grid Margin="10,8,10,8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" LastChildFill="True" Margin="2,0,0,6">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Content="&#xE8BB;" FontSize="10"
+                                    ToolTip="Fermer la playlist" Click="PlaylistButton_Click" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Content="&#xE74E;"
+                                    ToolTip="Enregistrer la playlist…" Click="SavePlaylist_Click" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Content="&#xE8E5;"
+                                    ToolTip="Charger une playlist…" Click="LoadPlaylist_Click" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource PanelButton}" Content="&#xE710;"
+                                    ToolTip="Ajouter des fichiers…" Click="AddFiles_Click" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Playlist" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                <TextBlock x:Name="PlaylistCount" FontSize="12" Foreground="{StaticResource SubtleTextBrush}"
+                                           Margin="8,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Grid.Row="1">
+                            <TextBlock x:Name="PlaylistEmpty" Text="Glissez des fichiers ici&#x0a;ou cliquez sur +" FontSize="12"
+                                       Foreground="{StaticResource SubtleTextBrush}" TextAlignment="Center"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
+                            <ListBox x:Name="PlaylistList" Background="Transparent" BorderThickness="0" SelectionMode="Extended"
+                                     ItemContainerStyle="{StaticResource PlaylistItemStyle}"
+                                     ItemTemplate="{StaticResource PlaylistItemTemplate}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     AllowDrop="True" Drop="PlaylistList_Drop" DragOver="PlaylistList_DragOver"
+                                     PreviewMouseLeftButtonDown="PlaylistList_PreviewMouseLeftButtonDown"
+                                     PreviewMouseMove="PlaylistList_PreviewMouseMove"
+                                     MouseDoubleClick="PlaylistList_MouseDoubleClick" PreviewKeyDown="PlaylistList_KeyDown" />
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Style="{StaticResource PanelButton}" Content="&#xE74A;" ToolTip="Monter" Click="MoveUp_Click" />
+                            <Button Style="{StaticResource PanelButton}" Content="&#xE74B;" ToolTip="Descendre" Click="MoveDown_Click" />
+                            <Button Style="{StaticResource PanelButton}" Content="&#xE74D;" ToolTip="Retirer la sélection (Suppr)"
+                                    Click="RemoveSelected_Click" />
+                            <Button Style="{StaticResource PanelButton}" Content="&#xE894;" ToolTip="Vider la playlist"
+                                    Click="ClearPlaylist_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
 

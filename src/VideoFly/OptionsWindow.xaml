@@ -26,9 +26,9 @@
                    Margin="0,20,0,8" />
         <Border Background="{StaticResource ElevatedBrush}" CornerRadius="8" Padding="16,14">
             <StackPanel>
-                <TextBlock Text="Ouvrir les vidéos avec VideoFly" />
+                <TextBlock Text="Ouvrir les vidéos, musiques et playlists avec VideoFly" />
                 <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource SubtleTextBrush}" Margin="0,2,0,12"
-                           Text="Déclare VideoFly auprès de Windows, puis ouvre les réglages où il suffit de le choisir comme lecteur vidéo. Ensuite, un double-clic sur une vidéo l'ouvre dans VideoFly (dans une nouvelle vignette si VideoFly est déjà ouvert)." />
+                           Text="Déclare VideoFly auprès de Windows, puis ouvre les réglages où il suffit de le choisir comme lecteur vidéo. Ensuite, un double-clic sur un fichier l'ouvre dans VideoFly (dans une nouvelle vignette si VideoFly est déjà ouvert)." />
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="RegisterButton" Content="Définir par défaut…" Style="{StaticResource AccentButton}"
                             Click="Register_Click" Margin="0,0,8,0" />

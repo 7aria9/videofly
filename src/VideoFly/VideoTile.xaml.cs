@@ -74,20 +74,22 @@ public partial class VideoTile : UserControl
     /// <summary>Demande à mettre cette vignette à la place principale de la disposition.</summary>
     public event EventHandler? MoveToMainRequested;
 
-    public string FilePath { get; }
+    /// <summary>Fichier en cours de lecture (vide si la playlist est vide).</summary>
+    public string FilePath => _current?.Path ?? "";
+
+    /// <summary>Un nouvel élément de la playlist commence (pour l'historique).</summary>
+    public event Action<string>? ItemStarted;
 
     /// <summary>Placée par l'organisation automatique : on ne l'adapte pas à la taille de la vidéo.</summary>
     public bool ArrangedByLayout { get; set; }
 
     public bool IsMaximized { get; private set; }
 
-    public VideoTile(string path, AppSettings settings, long resumeAtMs = 0)
+    /// <param name="paths">Fichiers de la playlist (peut être vide : nouvelle playlist).</param>
+    public VideoTile(IEnumerable<string> paths, AppSettings settings)
     {
         InitializeComponent();
         _settings = settings;
-        FilePath = path;
-        TitleText.Text = Path.GetFileName(path);
-        ToolTipService.SetToolTip(TitleThumb, path);
 
         _player = new MediaPlayer(App.LibVlc) { EnableHardwareDecoding = true };
         _renderer = new VideoFrameRenderer(_player, Dispatcher);
@@ -100,7 +102,7 @@ public partial class VideoTile : UserControl
         _player.Paused += (_, _) => OnUi(OnPausedOrStopped);
         _player.Stopped += (_, _) => OnUi(OnPausedOrStopped);
         _player.EndReached += (_, _) => OnUi(OnEndReached);
-        _player.EncounteredError += (_, _) => OnUi(() => TitleText.Text = $"{Path.GetFileName(path)} (erreur de lecture)");
+        _player.EncounteredError += (_, _) => OnUi(OnPlaybackError);
 
         _hideTimer.Tick += (_, _) => HideControlsIfIdle();
         _rewindTimer.Tick += RewindTimer_Tick;
@@ -108,11 +110,9 @@ public partial class VideoTile : UserControl
         _uiTimer.Start();
 
         VolumeSlider.Value = settings.Volume;
-
         _autoSizePending = settings.AutoResizeWindowToVideo;
-        _resumeAtMs = resumeAtMs;
-        _media = new Media(App.LibVlc, new Uri(path));
-        _player.Play(_media);
+
+        InitPlaylist(paths);
     }
 
     private void OnUi(Action action) => Dispatcher.BeginInvoke(() => { if (!_closed) action(); });
@@ -146,6 +146,8 @@ public partial class VideoTile : UserControl
     {
         _hideTimer.Stop();
         if (_closed || !_controlsVisible || !_player.IsPlaying || _isSeeking) return;
+        // Audio ou playlist ouverte : rien à regarder derrière, on laisse les commandes.
+        if (_isAudio || PlaylistPanel.Visibility == Visibility.Visible) return;
         // On ne cache pas sous le pointeur de l'utilisateur (sauf s'il a quitté la vignette).
         if (IsMouseOver && (BottomOverlay.IsMouseOver || TopOverlay.IsMouseOver)) return;
         _controlsVisible = false;
@@ -200,6 +202,7 @@ public partial class VideoTile : UserControl
         }
         _player.Volume = (int)VolumeSlider.Value;
         UpdatePlayPauseGlyph();
+        UpdateAudioInfo();
         ShowControls(); // relance le délai avant de les effacer
     }
 
@@ -211,6 +214,8 @@ public partial class VideoTile : UserControl
 
     private void OnEndReached()
     {
+        // Playlist : on enchaîne sur l'élément suivant.
+        if (PlayNext()) return;
         ShowControls();
         ResetSpeed();
         UpdatePlayPauseGlyph();
@@ -377,7 +382,13 @@ public partial class VideoTile : UserControl
 
     public void TogglePlayPause()
     {
-        if (_media == null) return;
+        if (_media == null)
+        {
+            // Rien en cours : on lance la playlist (ou on l'affiche si elle est vide).
+            if (_playlist.Items.Count > 0) PlayItem(_playlist.Items[0]);
+            else ShowPlaylistPanel(true);
+            return;
+        }
 
         // En avance/retour rapide, "Lecture" revient à la vitesse normale.
         if (_trickMode != TrickMode.None)
@@ -491,15 +502,21 @@ public partial class VideoTile : UserControl
 
     // ---------------------------------------------------------------- Précédent / suivant
 
+    /// <summary>Précédent : revient au début si on a passé 3 s, sinon passe à l'élément précédent.</summary>
     private void PreviousButton_Click(object sender, RoutedEventArgs e)
     {
-        // Prévu pour plus tard (liste de lecture).
+        if (_media == null) return;
+        int index = CurrentIndex;
+        if (_player.Time > 3000 || index <= 0)
+        {
+            if (_player.State is VLCState.Ended or VLCState.Stopped) PlayItem(_current!);
+            else _player.Time = 0;
+            return;
+        }
+        PlayItem(_playlist.Items[index - 1]);
     }
 
-    private void NextButton_Click(object sender, RoutedEventArgs e)
-    {
-        // Prévu pour plus tard (liste de lecture).
-    }
+    private void NextButton_Click(object sender, RoutedEventArgs e) => PlayNext();
 
     // ---------------------------------------------------------------- Volume
 
