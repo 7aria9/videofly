@@ -88,7 +88,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true) OpenFile(dialog.FileName);
     }
 
-    private void AddTile(IEnumerable<string> paths, Point? position, long resumeAtMs = 0)
+    private void AddTile(IEnumerable<string> paths, Point? position, long resumeAtMs = 0, SavedTile? saved = null)
     {
         var tile = new VideoTile(paths, _settings)
         {
@@ -117,10 +117,85 @@ public partial class MainWindow : Window
         _tiles.Add(tile);
         tile.PlayStateChanged += (_, _) => UpdateGlobalPlayPause();
         tile.SetRenderingSuspended(WindowState == WindowState.Minimized);
+        if (saved != null)
+        {
+            tile.ApplySaved(saved);
+            if (saved.Width > 0 && saved.Height > 0)
+            {
+                var area = DesktopArea;
+                double w = Math.Min(saved.Width, Math.Max(tile.MinWidth, area.Width));
+                double h = Math.Min(saved.Height, Math.Max(tile.MinHeight, area.Height));
+                tile.SetBounds(new Rect(Math.Clamp(saved.X, 0, Math.Max(0, area.Width - w)),
+                                        Math.Clamp(saved.Y, 0, Math.Max(0, area.Height - h)), w, h));
+            }
+            if (saved.Maximized) tile.Maximize();
+        }
         ActivateTile(tile);
         UpdateEmptyHint();
         ApplyAutoLayout();
-        tile.Start(0, resumeAtMs);
+        if (saved != null) tile.Start(saved.CurrentIndex, saved.PositionMs);
+        else tile.Start(0, resumeAtMs);
+    }
+
+    // ---------------------------------------------------------------- Session (vidéos gardées à la fermeture)
+
+    /// <summary>Rouvre les vidéos gardées à la dernière fermeture, à leur place et à leur moment, en pause.</summary>
+    public void RestoreSession()
+    {
+        var session = _settings.Session;
+        if (session == null || session.Count == 0) return;
+
+        bool autoLayout = _settings.AutoLayout;
+        _settings.AutoLayout = false; // on replace d'abord chaque vignette où elle était
+        foreach (var saved in session)
+        {
+            var existing = saved.Items.Where(File.Exists).ToList();
+            if (existing.Count == 0) continue;
+            if (existing.Count != saved.Items.Count)
+            {
+                // Des fichiers ont disparu : on garde l'élément en cours s'il existe encore, sinon on repart du début.
+                string? current = saved.CurrentIndex >= 0 && saved.CurrentIndex < saved.Items.Count ? saved.Items[saved.CurrentIndex] : null;
+                int index = current != null ? existing.IndexOf(current) : -1;
+                saved.CurrentIndex = Math.Max(0, index);
+                if (index < 0) saved.PositionMs = 0;
+            }
+            AddTile(existing, null, saved: saved);
+        }
+        _settings.AutoLayout = autoLayout;
+        ApplyAutoLayout();
+    }
+
+    /// <summary>À la fermeture : garder ou non les vidéos ouvertes (demande à l'utilisateur si besoin).</summary>
+    /// <returns>false si l'utilisateur annule la fermeture.</returns>
+    private bool SaveSessionOnClose()
+    {
+        var tiles = _tiles.Where(t => t.Playlist.Items.Count > 0).ToList();
+        if (tiles.Count == 0)
+        {
+            _settings.Session = null;
+            return true;
+        }
+
+        bool keep;
+        switch (_settings.OnClose)
+        {
+            case SessionCloseMode.AlwaysKeep:
+                keep = true;
+                break;
+            case SessionCloseMode.NeverKeep:
+                keep = false;
+                break;
+            default:
+                var dialog = new KeepSessionDialog(tiles.Count) { Owner = this };
+                if (dialog.ShowDialog() != true) return false; // Annuler : on ne ferme pas
+                keep = dialog.Keep;
+                if (dialog.Remember) _settings.OnClose = keep ? SessionCloseMode.AlwaysKeep : SessionCloseMode.NeverKeep;
+                break;
+        }
+
+        // L'ordre des vignettes est celui des places de la disposition : on le conserve.
+        _settings.Session = keep ? tiles.Select(t => t.ToSaved()).ToList() : null;
+        return true;
     }
 
     private Point NextCascadePosition(double width, double height)
@@ -609,6 +684,11 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (!SaveSessionOnClose())
+        {
+            e.Cancel = true;
+            return;
+        }
         foreach (var tile in _tiles) RememberPosition(tile);
         _settings.Save();
         foreach (var tile in _tiles.ToList()) tile.Shutdown();

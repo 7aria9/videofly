@@ -35,7 +35,9 @@ public partial class VideoTile : UserControl
     private Media? _media;
     private bool _closed;
     private bool _repeat = true; // relecture automatique en fin de média (activée par défaut)
-    private long _resumeAtMs;   // reprise à la dernière position (historique), appliquée au premier démarrage
+    private long _resumeAtMs;
+    private bool _startPaused;   // session restaurée : on se place au bon moment puis on reste en pause
+    private bool? _pendingMute;  // le son ne peut être coupé qu'une fois la lecture lancée   // reprise à la dernière position (historique), appliquée au premier démarrage
 
     // Avance / retour rapide
     private TrickMode _trickMode = TrickMode.None;
@@ -227,6 +229,17 @@ public partial class VideoTile : UserControl
             _resumeAtMs = 0;
         }
         _player.Volume = (int)VolumeSlider.Value;
+        if (_pendingMute is bool mute)
+        {
+            _player.Mute = mute;
+            _pendingMute = null;
+            UpdateMuteGlyph();
+        }
+        if (_startPaused)
+        {
+            _startPaused = false;
+            _player.SetPause(true);
+        }
         UpdatePlayPauseGlyph();
         UpdateAudioInfo();
         ShowControls(); // relance le délai avant de les effacer
@@ -455,9 +468,11 @@ public partial class VideoTile : UserControl
 
     // ---------------------------------------------------------------- Relecture automatique
 
-    private void RepeatButton_Click(object sender, RoutedEventArgs e)
+    private void RepeatButton_Click(object sender, RoutedEventArgs e) => SetRepeat(!_repeat);
+
+    private void SetRepeat(bool repeat)
     {
-        _repeat = !_repeat;
+        _repeat = repeat;
         RepeatButton.Foreground = (Brush)FindResource(_repeat ? "AccentBrush" : "FaintTextBrush");
         RepeatButton.ToolTip = _repeat ? "Relecture automatique : activée" : "Relecture automatique : désactivée";
     }
@@ -610,6 +625,48 @@ public partial class VideoTile : UserControl
             _rewindPosMs = position * _player.Length;
     }
 
+    // ---------------------------------------------------------------- Aperçu au survol
+
+    private SeekPreview? _seekPreview;
+
+    private void SeekSlider_MouseMove(object sender, MouseEventArgs e)
+    {
+        long length = _player.Length;
+        if (_closed || _media == null || _current == null || length <= 0 || SeekSlider.ActualWidth <= 0)
+        {
+            SeekPreviewPopup.IsOpen = false;
+            return;
+        }
+
+        double x = Math.Clamp(e.GetPosition(SeekSlider).X, 0, SeekSlider.ActualWidth);
+        long time = (long)(x / SeekSlider.ActualWidth * length);
+        SeekPreviewTime.Text = Format(time);
+
+        // Image seulement pour les vidéos (pour l'audio, le temps suffit).
+        bool showImage = !_isAudio;
+        SeekPreviewFrame.Visibility = showImage ? Visibility.Visible : Visibility.Collapsed;
+        if (showImage)
+        {
+            if (_seekPreview == null)
+            {
+                _seekPreview = new SeekPreview(Dispatcher);
+                _seekPreview.SourceChanged += source => SeekPreviewImage.Source = source;
+            }
+            _seekPreview.Request(_current.Path, time);
+        }
+
+        SeekPreviewPopup.IsOpen = true;
+        SeekPreviewBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double popupWidth = SeekPreviewBox.DesiredSize.Width;
+        SeekPreviewPopup.HorizontalOffset = Math.Clamp(x - popupWidth / 2, -8, SeekSlider.ActualWidth - popupWidth + 8);
+    }
+
+    private void SeekSlider_MouseLeave(object sender, MouseEventArgs e)
+    {
+        SeekPreviewPopup.IsOpen = false;
+        _seekPreview?.Release();
+    }
+
     private void SeekSlider_DragStart(object sender, MouseButtonEventArgs e) => _isSeeking = true;
 
     private void SeekSlider_DragEnd(object sender, MouseButtonEventArgs e) => _isSeeking = false;
@@ -633,6 +690,41 @@ public partial class VideoTile : UserControl
         return (time, length);
     }
 
+    // ---------------------------------------------------------------- Session (vidéos gardées à la fermeture)
+
+    /// <summary>État à mémoriser pour rouvrir la vignette au prochain lancement.</summary>
+    public SavedTile ToSaved()
+    {
+        var bounds = IsMaximized ? _restoreBounds : Bounds;
+        return new SavedTile
+        {
+            Items = _playlist.Items.Select(i => i.Path).ToList(),
+            CurrentIndex = Math.Max(0, CurrentIndex),
+            PositionMs = GetPlaybackPosition().Position,
+            X = bounds.X,
+            Y = bounds.Y,
+            Width = bounds.Width,
+            Height = bounds.Height,
+            Maximized = IsMaximized,
+            Volume = (int)Math.Round(VolumeSlider.Value),
+            Muted = !_closed && _player.Mute,
+            Repeat = _repeat,
+        };
+    }
+
+    /// <summary>Réglages d'une vignette restaurée, à appliquer avant <see cref="Start"/> (la lecture démarre en pause).</summary>
+    public void ApplySaved(SavedTile saved)
+    {
+        _autoSizePending = false; // on garde la taille enregistrée
+        _startPaused = true;
+        _pendingMute = saved.Muted;
+        VolumeSlider.Value = Math.Clamp(saved.Volume, 0, 100);
+        SetRepeat(saved.Repeat);
+    }
+
+    /// <summary>Agrandit la vignette (une fois placée dans la zone principale).</summary>
+    public void Maximize() => SetMaximized(true);
+
     /// <summary>Arrête la lecture et libère les ressources VLC.</summary>
     public void Shutdown()
     {
@@ -642,6 +734,9 @@ public partial class VideoTile : UserControl
         _rewindTimer.Stop();
         _hideTimer.Stop();
         _player.Stop();
+        SeekPreviewPopup.IsOpen = false;
+        _seekPreview?.Dispose();
+        _seekPreview = null;
         _renderer.Dispose();
         _player.Dispose();
         _media?.Dispose();

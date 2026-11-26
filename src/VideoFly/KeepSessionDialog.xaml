@@ -1,0 +1,26 @@
+<Window x:Class="VideoFly.KeepSessionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VideoFly" Icon="/VideoFly.ico" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource SurfaceBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="{StaticResource UiFont}">
+    <StackPanel Margin="24,20,24,20" Width="400">
+        <TextBlock Text="Garder les vidéos ouvertes ?" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap" Foreground="{StaticResource SubtleTextBrush}" />
+
+        <CheckBox x:Name="RememberCheck" Style="{StaticResource ToggleSwitch}" Margin="0,18,0,0">
+            <StackPanel>
+                <TextBlock Text="Ne plus demander" />
+                <TextBlock Text="Modifiable ensuite dans Menu › Options" FontSize="12"
+                           Foreground="{StaticResource SubtleTextBrush}" Margin="0,2,0,0" />
+            </StackPanel>
+        </CheckBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+            <Button Content="Annuler" Style="{StaticResource TextButton}" IsCancel="True" Margin="0,0,8,0" />
+            <Button Content="Ne pas garder" Style="{StaticResource TextButton}" Click="Discard_Click" Margin="0,0,8,0" />
+            <Button Content="Garder" Style="{StaticResource AccentButton}" IsDefault="True" Click="Keep_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

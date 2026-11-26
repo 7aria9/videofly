@@ -18,6 +18,12 @@ public sealed class AppSettings
     /// <summary>Volume des nouvelles vignettes (0 à 100), mémorisé d'une session à l'autre.</summary>
     public int Volume { get; set; } = 80;
 
+    /// <summary>Que faire des vidéos ouvertes quand on ferme VideoFly.</summary>
+    public SessionCloseMode OnClose { get; set; } = SessionCloseMode.Ask;
+
+    /// <summary>Vidéos ouvertes à la dernière fermeture (si l'utilisateur a choisi de les garder).</summary>
+    public List<SavedTile>? Session { get; set; }
+
     /// <summary>Historique des vidéos ouvertes, la plus récente en premier.</summary>
     public List<HistoryEntry> History { get; set; } = new();
 
@@ -91,4 +97,28 @@ public sealed class HistoryEntry
     /// <summary>Position où reprendre, ou 0 si ça ne vaut pas la peine (tout début ou toute fin).</summary>
     public long ResumePositionMs =>
         PositionMs > 5000 && (LengthMs <= 0 || PositionMs < LengthMs - 10000) ? PositionMs : 0;
+}
+
+/// <summary>À la fermeture : garder les vidéos ouvertes pour le prochain lancement ?</summary>
+public enum SessionCloseMode
+{
+    Ask,
+    AlwaysKeep,
+    NeverKeep,
+}
+
+/// <summary>Une vignette mémorisée à la fermeture : contenu, place dans la fenêtre et moment de lecture.</summary>
+public sealed class SavedTile
+{
+    public List<string> Items { get; set; } = new();
+    public int CurrentIndex { get; set; }
+    public long PositionMs { get; set; }
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public bool Maximized { get; set; }
+    public int Volume { get; set; } = 80;
+    public bool Muted { get; set; }
+    public bool Repeat { get; set; } = true;
 }

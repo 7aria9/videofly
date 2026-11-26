@@ -12,6 +12,9 @@ public partial class OptionsWindow : Window
         DarkTitleBar.Apply(this);
         _settings = settings;
         AutoResizeCheck.IsChecked = settings.AutoResizeWindowToVideo;
+        OnCloseAsk.IsChecked = settings.OnClose == SessionCloseMode.Ask;
+        OnCloseKeep.IsChecked = settings.OnClose == SessionCloseMode.AlwaysKeep;
+        OnCloseDiscard.IsChecked = settings.OnClose == SessionCloseMode.NeverKeep;
         UpdateAssociationStatus();
     }
 
@@ -55,6 +58,9 @@ public partial class OptionsWindow : Window
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         _settings.AutoResizeWindowToVideo = AutoResizeCheck.IsChecked == true;
+        _settings.OnClose = OnCloseKeep.IsChecked == true ? SessionCloseMode.AlwaysKeep
+                          : OnCloseDiscard.IsChecked == true ? SessionCloseMode.NeverKeep
+                          : SessionCloseMode.Ask;
         DialogResult = true;
     }
 }
