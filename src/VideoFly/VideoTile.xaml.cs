@@ -714,7 +714,9 @@ public partial class VideoTile : UserControl
     private void SeekSlider_MouseMove(object sender, MouseEventArgs e)
     {
         long length = _player.Length;
-        if (_closed || _media == null || _current == null || length <= 0 || SeekSlider.ActualWidth <= 0)
+        // Aperçu au simple survol seulement : pas pendant qu'on fait glisser le curseur de position.
+        bool dragging = _isSeeking || e.LeftButton == MouseButtonState.Pressed;
+        if (dragging || _closed || _media == null || _current == null || length <= 0 || SeekSlider.ActualWidth <= 0)
         {
             SeekPreviewBox.Visibility = Visibility.Collapsed;
             return;
@@ -756,7 +758,11 @@ public partial class VideoTile : UserControl
         _seekPreview?.Release();
     }
 
-    private void SeekSlider_DragStart(object sender, MouseButtonEventArgs e) => _isSeeking = true;
+    private void SeekSlider_DragStart(object sender, MouseButtonEventArgs e)
+    {
+        _isSeeking = true;
+        SeekPreviewBox.Visibility = Visibility.Collapsed;
+    }
 
     private void SeekSlider_DragEnd(object sender, MouseButtonEventArgs e) => _isSeeking = false;
 
