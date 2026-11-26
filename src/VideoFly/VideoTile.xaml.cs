@@ -35,7 +35,6 @@ public partial class VideoTile : UserControl
     private Media? _media;
     private bool _closed;
     private bool _repeat = true; // relecture automatique en fin de média (activée par défaut)
-    private long _resumeAtMs;
     private bool _startPaused;   // session restaurée : on se place au bon moment puis on reste en pause
     private bool? _pendingMute;  // le son ne peut être coupé qu'une fois la lecture lancée   // reprise à la dernière position (historique), appliquée au premier démarrage
 
@@ -105,6 +104,30 @@ public partial class VideoTile : UserControl
         TogglePlayPause();
     }
 
+    /// <summary>Demande de plein écran (bouton, double-clic sur l'image) : la fenêtre principale s'en occupe.</summary>
+    public event EventHandler? FullScreenRequested;
+
+    /// <summary>La vignette occupe tout l'écran.</summary>
+    public bool IsFullScreen { get; private set; }
+
+    private void FullScreenButton_Click(object sender, RoutedEventArgs e) => FullScreenRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Affichage plein écran : sans cadre ni coins arrondis, bouton « Quitter le plein écran ».</summary>
+    public void SetFullScreen(bool fullScreen)
+    {
+        IsFullScreen = fullScreen;
+        Frame.CornerRadius = new CornerRadius(fullScreen ? 0 : 10);
+        Frame.BorderThickness = new Thickness(fullScreen ? 0 : 1);
+        MaximizeButton.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+        FullScreenButton.Content = fullScreen ? "\uE73F" : "\uE740";
+        FullScreenButton.ToolTip = fullScreen ? "Quitter le plein écran (Échap)" : "Plein écran (F11)";
+        double r = fullScreen ? 0 : 9;
+        Surface.Clip = new RectangleGeometry(new Rect(0, 0, Surface.ActualWidth, Surface.ActualHeight), r, r);
+    }
+
+    /// <summary>Remet la vignette à sa taille d'avant l'agrandissement.</summary>
+    public void Unmaximize() => SetMaximized(false);
+
     /// <summary>Fenêtre réduite : on arrête de dessiner les images (le son et la lecture continuent).</summary>
     public void SetRenderingSuspended(bool suspended) => _renderer.SetSuspended(suspended);
 
@@ -137,7 +160,8 @@ public partial class VideoTile : UserControl
         _uiTimer.Tick += (_, _) => UpdateProgress();
         _uiTimer.Start();
 
-        VolumeSlider.Value = settings.Volume;
+        VolumeSlider.Value = Math.Clamp(settings.Volume, 0, (int)VolumeSlider.Maximum);
+        UpdateVolumeText();
         _autoSizePending = settings.AutoResizeWindowToVideo;
 
         InitPlaylist(paths);
@@ -194,14 +218,16 @@ public partial class VideoTile : UserControl
     /// <summary>Coins arrondis : on découpe le contenu à la forme du cadre.</summary>
     private void Surface_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        Surface.Clip = new RectangleGeometry(new Rect(0, 0, e.NewSize.Width, e.NewSize.Height), 9, 9);
+        double r = IsFullScreen ? 0 : 9;
+        Surface.Clip = new RectangleGeometry(new Rect(0, 0, e.NewSize.Width, e.NewSize.Height), r, r);
     }
 
     /// <summary>Vignette étroite : on masque le temps et le curseur de volume pour garder les boutons lisibles.</summary>
     private void Tile_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         TimeText.Visibility = e.NewSize.Width < 430 ? Visibility.Collapsed : Visibility.Visible;
-        VolumeSlider.Visibility = e.NewSize.Width < 360 ? Visibility.Collapsed : Visibility.Visible;
+        VolumeSlider.Visibility = e.NewSize.Width < 380 ? Visibility.Collapsed : Visibility.Visible;
+        VolumeText.Visibility = e.NewSize.Width < 500 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ---------------------------------------------------------------- Activation
@@ -215,19 +241,14 @@ public partial class VideoTile : UserControl
 
     private void VideoHost_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Double-clic sur l'image : agrandir / restaurer.
-        if (e.ClickCount == 2) ToggleMaximize();
+        // Double-clic sur l'image : plein écran / sortie du plein écran.
+        if (e.ClickCount == 2) FullScreenRequested?.Invoke(this, EventArgs.Empty);
     }
 
     // ---------------------------------------------------------------- Évènements lecteur
 
     private void OnPlaying()
     {
-        if (_resumeAtMs > 0)
-        {
-            _player.Time = _resumeAtMs;
-            _resumeAtMs = 0;
-        }
         _player.Volume = (int)VolumeSlider.Value;
         if (_pendingMute is bool mute)
         {
@@ -388,7 +409,10 @@ public partial class VideoTile : UserControl
 
     private void MaximizeButton_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
 
-    private void ToggleMaximize() => SetMaximized(!IsMaximized);
+    private void ToggleMaximize()
+    {
+        if (!IsFullScreen) SetMaximized(!IsMaximized);
+    }
 
     private void SetMaximized(bool maximized)
     {
@@ -451,8 +475,7 @@ public partial class VideoTile : UserControl
             case VLCState.Ended:
             case VLCState.Stopped:
             case VLCState.Error:
-                _player.Stop();
-                _player.Play(_media);
+                RestartCurrentMedia();
                 break;
             default:
                 _player.Play();
@@ -502,8 +525,7 @@ public partial class VideoTile : UserControl
 
         if (_player.State is VLCState.Ended or VLCState.Stopped)
         {
-            _player.Stop();
-            _player.Play(_media);
+            RestartCurrentMedia();
         }
         else if (!_player.IsPlaying)
         {
@@ -587,6 +609,66 @@ public partial class VideoTile : UserControl
             UpdateMuteGlyph();
         }
         if (_settings != null) _settings.Volume = volume;
+        UpdateVolumeText();
+    }
+
+    private void UpdateVolumeText()
+    {
+        if (VolumeText == null) return;
+        int volume = (int)Math.Round(VolumeSlider.Value);
+        // Au-delà de 100 %, le son est amplifié (il peut saturer) : on le signale en couleur d'accent.
+        VolumeText.Text = $"{volume} %";
+        VolumeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "SubtleTextBrush");
+    }
+
+    private void VolumeSlider_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        AdjustVolume(e.Delta);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Molette n'importe où sur la vignette : règle son volume (la liste de la playlist, elle, défile normalement).
+    /// </summary>
+    private void Tile_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled) return;
+        AdjustVolume(e.Delta);
+        ShowVolumeBadge();
+        e.Handled = true;
+    }
+
+    /// <summary>±5 % par cran de molette, avec un arrêt à 100 % pour retrouver facilement le volume normal.</summary>
+    private void AdjustVolume(int wheelDelta)
+    {
+        double current = VolumeSlider.Value;
+        double next = current + (wheelDelta > 0 ? 5 : -5);
+        if ((current < 100 && next > 100) || (current > 100 && next < 100)) next = 100;
+        VolumeSlider.Value = Math.Clamp(next, VolumeSlider.Minimum, VolumeSlider.Maximum);
+        if (_player.Mute && wheelDelta > 0) _player.Mute = false;
+        UpdateMuteGlyph();
+    }
+
+    private readonly DispatcherTimer _volumeBadgeTimer = new() { Interval = TimeSpan.FromSeconds(1.2) };
+
+    private void ShowVolumeBadge()
+    {
+        int volume = (int)Math.Round(VolumeSlider.Value);
+        bool muted = _player.Mute || volume == 0;
+        VolumeBadgeIcon.Text = muted ? GlyphMute : GlyphVolume;
+        VolumeBadgeText.Text = $"{volume} %";
+        VolumeBadgeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "TextBrush");
+        VolumeBadge.Visibility = Visibility.Visible;
+        _volumeBadgeTimer.Stop();
+        _volumeBadgeTimer.Tick -= HideVolumeBadge;
+        _volumeBadgeTimer.Tick += HideVolumeBadge;
+        _volumeBadgeTimer.Start();
+    }
+
+    private void HideVolumeBadge(object? sender, EventArgs e)
+    {
+        _volumeBadgeTimer.Stop();
+        VolumeBadge.Visibility = Visibility.Collapsed;
     }
 
     private void MuteButton_Click(object sender, RoutedEventArgs e)
@@ -725,7 +807,7 @@ public partial class VideoTile : UserControl
         _autoSizePending = false; // on garde la taille enregistrée
         _startPaused = true;
         _pendingMute = saved.Muted;
-        VolumeSlider.Value = Math.Clamp(saved.Volume, 0, 100);
+        VolumeSlider.Value = Math.Clamp(saved.Volume, 0, (int)VolumeSlider.Maximum);
         SetRepeat(saved.Repeat);
     }
 
@@ -740,6 +822,7 @@ public partial class VideoTile : UserControl
         _uiTimer.Stop();
         _rewindTimer.Stop();
         _hideTimer.Stop();
+        _volumeBadgeTimer.Stop();
         _player.Stop();
         SeekPreviewBox.Visibility = Visibility.Collapsed;
         _seekPreview?.Dispose();

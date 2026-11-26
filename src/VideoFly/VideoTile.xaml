@@ -4,7 +4,7 @@
              xmlns:local="clr-namespace:VideoFly"
              MinWidth="240" MinHeight="160" FontFamily="{StaticResource UiFont}"
              PreviewMouseDown="Tile_PreviewMouseDown" MouseMove="Tile_MouseMove" MouseLeave="Tile_MouseLeave"
-             SizeChanged="Tile_SizeChanged">
+             SizeChanged="Tile_SizeChanged" MouseWheel="Tile_MouseWheel">
     <UserControl.Resources>
         <Style x:Key="TileButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
             <Setter Property="Width" Value="32" />
@@ -138,15 +138,29 @@
                         </Thumb.ContextMenu>
                     </Thumb>
                     <TextBlock x:Name="TitleText" Text="Vidéo" Foreground="{StaticResource TextBrush}" FontSize="12.5"
-                               FontWeight="SemiBold" VerticalAlignment="Top" Margin="14,10,76,0"
+                               FontWeight="SemiBold" VerticalAlignment="Top" Margin="14,10,106,0"
                                TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,6,0">
+                        <Button x:Name="FullScreenButton" Style="{StaticResource TitleButton}"
+                                Content="&#xE740;" ToolTip="Plein écran (F11)" Click="FullScreenButton_Click" />
                         <Button x:Name="MaximizeButton" Style="{StaticResource TitleButton}"
                                 Content="&#xE922;" ToolTip="Agrandir" Click="MaximizeButton_Click" />
                         <Button Style="{StaticResource TitleButton}"
                                 Content="&#xE8BB;" ToolTip="Fermer" Click="CloseButton_Click" />
                     </StackPanel>
                 </Grid>
+
+                <!-- Volume réglé à la molette : affiché un instant au centre de la vignette -->
+                <Border x:Name="VolumeBadge" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Background="#CC16161A" CornerRadius="10" Padding="14,8" Visibility="Collapsed"
+                        IsHitTestVisible="False">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="VolumeBadgeIcon" FontFamily="{StaticResource IconFont}" FontSize="18"
+                                   Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock x:Name="VolumeBadgeText" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
 
                 <!-- Vitesse d'avance / retour rapide -->
                 <Border x:Name="SpeedBadge" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,40,0,0"
@@ -202,9 +216,13 @@
                                         Content="&#xE8FD;" ToolTip="Playlist" Click="PlaylistButton_Click" />
                                 <Button x:Name="MuteButton" Style="{StaticResource TileButton}"
                                         Content="&#xE767;" ToolTip="Couper le son" Click="MuteButton_Click" />
-                                <Slider x:Name="VolumeSlider" Style="{StaticResource ModernSlider}" Width="72"
-                                        Minimum="0" Maximum="100" VerticalAlignment="Center" Margin="2,0,0,0"
-                                        ToolTip="Volume" ValueChanged="VolumeSlider_ValueChanged" />
+                                <Slider x:Name="VolumeSlider" Style="{StaticResource ModernSlider}" Width="96"
+                                        Minimum="0" Maximum="250" VerticalAlignment="Center" Margin="2,0,0,0"
+                                        ToolTip="Volume (jusqu'à 250 %, molette pour régler)"
+                                        ValueChanged="VolumeSlider_ValueChanged" MouseWheel="VolumeSlider_MouseWheel" />
+                                <TextBlock x:Name="VolumeText" Width="38" FontSize="11" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="2,0,2,0"
+                                           Foreground="{StaticResource SubtleTextBrush}" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>

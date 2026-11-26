@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RestoreWindowPlacement();
         UpdateEmptyHint();
 
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Open, (_, _) => ShowOpenDialog()));
@@ -110,6 +111,7 @@ public partial class MainWindow : Window
         tile.LayoutDragMoved += (_, _) => ShowDropTarget(tile);
         tile.LayoutDragDropped += (_, _) => DropTileOnSlot(tile);
         tile.MoveToMainRequested += (_, _) => MoveToMainSlot(tile);
+        tile.FullScreenRequested += (_, _) => ToggleFullScreen(tile);
         tile.ItemStarted += path =>
         {
             // Chaque élément lu (vidéo ou audio) rejoint l'historique.
@@ -153,13 +155,16 @@ public partial class MainWindow : Window
     {
         var session = _settings.Session;
         if (session == null || session.Count == 0) return;
-        RestoreTiles(session, _settings.AutoLayout);
+        RestoreTiles(session, _settings.AutoLayout, new Size(_settings.SessionDesktopWidth, _settings.SessionDesktopHeight));
     }
 
     /// <summary>Recrée les vignettes enregistrées (fichiers disparus ignorés). Renvoie le nombre de vignettes rouvertes.</summary>
-    private int RestoreTiles(IEnumerable<SavedTile> session, bool autoLayout)
+    /// <param name="savedDesktop">Taille de la zone à l'enregistrement : si elle diffère, les places sont remises à l'échelle.</param>
+    private int RestoreTiles(IEnumerable<SavedTile> session, bool autoLayout, Size savedDesktop)
     {
         int count = 0;
+        double sx = savedDesktop.Width > 0 && Desktop.ActualWidth > 0 ? Desktop.ActualWidth / savedDesktop.Width : 1;
+        double sy = savedDesktop.Height > 0 && Desktop.ActualHeight > 0 ? Desktop.ActualHeight / savedDesktop.Height : 1;
         _settings.AutoLayout = false; // on replace d'abord chaque vignette où elle était
         foreach (var saved in session)
         {
@@ -172,6 +177,13 @@ public partial class MainWindow : Window
                 int index = current != null ? existing.IndexOf(current) : -1;
                 saved.CurrentIndex = Math.Max(0, index);
                 if (index < 0) saved.PositionMs = 0;
+            }
+            if (Math.Abs(sx - 1) > 0.001 || Math.Abs(sy - 1) > 0.001)
+            {
+                saved.X *= sx;
+                saved.Y *= sy;
+                saved.Width *= sx;
+                saved.Height *= sy;
             }
             AddTile(existing, null, saved: saved);
             count++;
@@ -217,6 +229,8 @@ public partial class MainWindow : Window
         {
             AutoLayout = _settings.AutoLayout,
             LayoutId = _settings.LayoutId,
+            DesktopWidth = Desktop.ActualWidth,
+            DesktopHeight = Desktop.ActualHeight,
             Tiles = tiles.Select(t => t.ToSaved()).ToList(),
         };
         try
@@ -248,7 +262,7 @@ public partial class MainWindow : Window
 
         foreach (var tile in _tiles.ToList()) CloseTile(tile);
         if (file.LayoutId != null) _settings.LayoutId = file.LayoutId;
-        int opened = RestoreTiles(file.Tiles, file.AutoLayout);
+        int opened = RestoreTiles(file.Tiles, file.AutoLayout, new Size(file.DesktopWidth, file.DesktopHeight));
         _sessionFilePath = path;
 
         int missing = file.Tiles.Count - opened;
@@ -289,6 +303,8 @@ public partial class MainWindow : Window
 
         // L'ordre des vignettes est celui des places de la disposition : on le conserve.
         _settings.Session = keep ? tiles.Select(t => t.ToSaved()).ToList() : null;
+        _settings.SessionDesktopWidth = Desktop.ActualWidth;
+        _settings.SessionDesktopHeight = Desktop.ActualHeight;
         return true;
     }
 
@@ -345,6 +361,7 @@ public partial class MainWindow : Window
 
     private void CloseTile(VideoTile tile)
     {
+        if (tile == _fullScreenTile) ExitFullScreen();
         RememberPosition(tile);
         _settings.Save();
         tile.Shutdown();
@@ -721,11 +738,138 @@ public partial class MainWindow : Window
 
     private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
 
+    // ---------------------------------------------------------------- Plein écran
+
+    private VideoTile? _fullScreenTile;
+    private WindowState _stateBeforeFullScreen;
+    private Rect _boundsBeforeFullScreen;
+    private bool _tileWasMaximized;
+
+    private void ToggleFullScreen(VideoTile tile)
+    {
+        if (_fullScreenTile == null) EnterFullScreen(tile);
+        else ExitFullScreen();
+    }
+
+    /// <summary>
+    /// La vignette occupe tout l'écran où se trouve VideoFly : barre de titre masquée, autres vignettes cachées
+    /// (elles continuent de jouer, sans être dessinées). Échap, F11 ou double-clic pour revenir.
+    /// </summary>
+    private void EnterFullScreen(VideoTile tile)
+    {
+        if (_fullScreenTile != null || WindowState == WindowState.Minimized) return;
+
+        _stateBeforeFullScreen = WindowState;
+        _boundsBeforeFullScreen = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        Rect screen = CurrentMonitorBounds();
+        _fullScreenTile = tile; // avant de changer l'état : Window_StateChanged n'applique pas ses marges
+
+        if (WindowState != WindowState.Normal) WindowState = WindowState.Normal;
+        SetChrome(captionHeight: 0, resizeBorder: 0);
+        TitleRow.Height = new GridLength(0);
+        TitleBar.Visibility = Visibility.Collapsed;
+        RootBorder.Margin = new Thickness(0);
+        RootBorder.BorderThickness = new Thickness(0);
+        DesktopHost.Margin = new Thickness(0);
+        Left = screen.Left;
+        Top = screen.Top;
+        Width = screen.Width;
+        Height = screen.Height;
+
+        foreach (var other in _tiles.Where(t => t != tile))
+        {
+            other.Visibility = Visibility.Collapsed;
+            other.SetRenderingSuspended(true);
+        }
+        _tileWasMaximized = tile.IsMaximized;
+        tile.SetFullScreen(true);
+        tile.Maximize();
+        tile.FitToDesktop();
+        ActivateTile(tile);
+        Activate();
+    }
+
+    private void ExitFullScreen()
+    {
+        var tile = _fullScreenTile;
+        if (tile == null) return;
+        _fullScreenTile = null;
+
+        SetChrome(captionHeight: 44, resizeBorder: 6);
+        TitleRow.Height = new GridLength(44);
+        TitleBar.Visibility = Visibility.Visible;
+        DesktopHost.Margin = new Thickness(8, 0, 8, 8);
+
+        tile.SetFullScreen(false);
+        if (!_tileWasMaximized) tile.Unmaximize();
+        foreach (var other in _tiles.Where(t => t != tile))
+        {
+            other.Visibility = Visibility.Visible;
+            other.SetRenderingSuspended(false);
+        }
+
+        Left = _boundsBeforeFullScreen.Left;
+        Top = _boundsBeforeFullScreen.Top;
+        Width = _boundsBeforeFullScreen.Width;
+        Height = _boundsBeforeFullScreen.Height;
+        if (_stateBeforeFullScreen == WindowState.Maximized) WindowState = WindowState.Maximized;
+        Window_StateChanged(this, EventArgs.Empty); // bordure et marges normales
+        ApplyAutoLayout();
+    }
+
+    /// <summary>Barre de titre et bords de redimensionnement intégrés (désactivés en plein écran).</summary>
+    private void SetChrome(double captionHeight, double resizeBorder) =>
+        System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome
+        {
+            CaptionHeight = captionHeight,
+            ResizeBorderThickness = new Thickness(resizeBorder),
+            GlassFrameThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(0),
+            UseAeroCaptionButtons = false,
+        });
+
+    /// <summary>Rectangle (en unités WPF) de l'écran qui contient la plus grande partie de la fenêtre.</summary>
+    private Rect CurrentMonitorBounds()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var info = new MonitorInfo { Size = System.Runtime.InteropServices.Marshal.SizeOf<MonitorInfo>() };
+        if (hwnd == IntPtr.Zero || !GetMonitorInfo(MonitorFromWindow(hwnd, 2 /* MONITOR_DEFAULTTONEAREST */), ref info))
+            return new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+
+        var r = info.Monitor;
+        var toDip = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
+        var topLeft = toDip.Transform(new Point(r.Left, r.Top));
+        var bottomRight = toDip.Transform(new Point(r.Right, r.Bottom));
+        return new Rect(topLeft, bottomRight);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public NativeRect Monitor;
+        public NativeRect Work;
+        public uint Flags;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
     private void Window_StateChanged(object? sender, EventArgs e)
     {
         bool minimized = WindowState == WindowState.Minimized;
         foreach (var tile in _tiles) tile.SetRenderingSuspended(minimized);
 
+        if (_fullScreenTile != null) return; // le plein écran gère lui-même la fenêtre
         bool maximized = WindowState == WindowState.Maximized;
         // Sans cadre Windows, une fenêtre agrandie déborde de l'écran de la largeur de la bordure : on compense.
         var t = SystemParameters.WindowResizeBorderThickness;
@@ -763,6 +907,18 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && _fullScreenTile != null)
+        {
+            ExitFullScreen();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.F11 && (_fullScreenTile ?? _activeTile) is { } fsTile)
+        {
+            ToggleFullScreen(fsTile);
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
         {
             ToggleAllPlayPause();
@@ -776,13 +932,50 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Remet la fenêtre où elle était (si cet endroit est toujours visible : écran débranché…).</summary>
+    private void RestoreWindowPlacement()
+    {
+        var w = _settings.Window;
+        if (w == null || w.Width < MinWidth || w.Height < MinHeight) return;
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                              SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var bounds = new Rect(w.Left, w.Top, w.Width, w.Height);
+        if (!screen.IntersectsWith(bounds) || Rect.Intersect(screen, bounds).Width < 100) return;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = w.Left;
+        Top = w.Top;
+        Width = w.Width;
+        Height = w.Height;
+        if (w.Maximized)
+        {
+            WindowState = WindowState.Maximized;
+            Window_StateChanged(this, EventArgs.Empty); // marges de la fenêtre agrandie sans cadre
+        }
+    }
+
+    private void SaveWindowPlacement()
+    {
+        var r = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        if (r.IsEmpty || r.Width <= 0) return;
+        _settings.Window = new WindowPlacement
+        {
+            Left = r.Left,
+            Top = r.Top,
+            Width = r.Width,
+            Height = r.Height,
+            Maximized = WindowState == WindowState.Maximized,
+        };
+    }
+
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        ExitFullScreen(); // on enregistre la fenêtre et les vignettes telles qu'hors plein écran
         if (!SaveSessionOnClose())
         {
             e.Cancel = true;
             return;
         }
+        SaveWindowPlacement();
         foreach (var tile in _tiles) RememberPosition(tile);
         _settings.Save();
         foreach (var tile in _tiles.ToList()) tile.Shutdown();

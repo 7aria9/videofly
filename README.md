@@ -17,6 +17,7 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
   - la vidéo s'adapte à la taille de la vignette
 - Bouton lecture / pause global dans la barre de titre (Ctrl+Espace) : si une vidéo joue, tout se met en pause ;
   sinon, toutes les vignettes repartent.
+- La fenêtre de VideoFly rouvre à la même place et à la même taille (ou agrandie).
 - À la fermeture, VideoFly propose de garder les vidéos ouvertes : au lancement suivant, elles sont rouvertes
   à la même place, au même moment (en pause), avec leur playlist, leur volume et la relecture
   (« Ne plus demander », modifiable dans les Options).
@@ -24,6 +25,10 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
   moment de lecture et la disposition ; Fichier › Ouvrir une session (ou double-clic sur le fichier .flyv) les
   rouvre, en pause, à la place des vignettes ouvertes.
 - Dans chaque vignette :
+  - volume jusqu'à 250 % (au-delà de 100 %, le son est amplifié) ; la molette de la souris
+    sur la vignette règle son volume par pas de 5 %, avec un arrêt à 100 %
+  - plein écran (bouton en haut de la vignette, F11 ou double-clic sur l'image ; Échap pour sortir) :
+    la vignette occupe tout l'écran, les autres continuent en arrière-plan
   - aperçu au survol de la barre de progression : petite image et temps à l'endroit du pointeur
   - relecture automatique activée par défaut (bouton à gauche des commandes) : la vidéo, ou la playlist
     une fois terminée, recommence au début
@@ -73,7 +78,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.9.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.10.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible

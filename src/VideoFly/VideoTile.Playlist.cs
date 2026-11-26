@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -65,9 +66,7 @@ public partial class VideoTile
         _isAudio = item.IsAudio;
 
         var old = _media;
-        _media = new Media(App.LibVlc, MediaFiles.ToUri(item.Path));
-        _media.MetaChanged += (_, _) => OnUi(UpdateAudioInfo);
-        _resumeAtMs = resumeAtMs;
+        _media = CreateMedia(item.Path, resumeAtMs);
 
         CoverImage.Source = null;
         UpdateViewMode();
@@ -78,6 +77,30 @@ public partial class VideoTile
         PlaylistList.ScrollIntoView(item);
         ShowControls();
         ItemStarted?.Invoke(item.Path);
+    }
+
+    /// <summary>
+    /// Média LibVLC pour un fichier. La reprise passe par l'option « start-time » : LibVLC démarre directement
+    /// au bon moment. (Changer Time au premier évènement Playing était parfois ignoré, la vidéo repartait du début.)
+    /// </summary>
+    private Media CreateMedia(string path, long startMs)
+    {
+        var media = new Media(App.LibVlc, MediaFiles.ToUri(path));
+        if (startMs > 0)
+            media.AddOption(":start-time=" + (startMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture));
+        media.MetaChanged += (_, _) => OnUi(UpdateAudioInfo);
+        return media;
+    }
+
+    /// <summary>Relance l'élément en cours depuis le début, avec un nouveau média (sans l'éventuel point de reprise).</summary>
+    private void RestartCurrentMedia()
+    {
+        if (_current == null) return;
+        var old = _media;
+        _media = CreateMedia(_current.Path, 0);
+        _player.Stop();
+        _player.Play(_media);
+        old?.Dispose();
     }
 
     /// <summary>Passe à l'élément suivant s'il existe.</summary>
