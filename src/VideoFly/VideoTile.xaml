@@ -204,9 +204,13 @@
                                         Content="&#xE8FD;" ToolTip="Playlist" Click="PlaylistButton_Click" />
                                 <Button x:Name="MuteButton" Style="{StaticResource TileButton}"
                                         Content="&#xE767;" ToolTip="Couper le son" Click="MuteButton_Click" />
-                                <Slider x:Name="VolumeSlider" Style="{StaticResource ModernSlider}" Width="72"
-                                        Minimum="0" Maximum="100" VerticalAlignment="Center" Margin="2,0,0,0"
-                                        ToolTip="Volume" ValueChanged="VolumeSlider_ValueChanged" />
+                                <Slider x:Name="VolumeSlider" Style="{StaticResource ModernSlider}" Width="96"
+                                        Minimum="0" Maximum="250" VerticalAlignment="Center" Margin="2,0,0,0"
+                                        ToolTip="Volume (jusqu'à 250 %, molette pour régler)"
+                                        ValueChanged="VolumeSlider_ValueChanged" MouseWheel="VolumeSlider_MouseWheel" />
+                                <TextBlock x:Name="VolumeText" Width="38" FontSize="11" TextAlignment="Right"
+                                           VerticalAlignment="Center" Margin="2,0,2,0"
+                                           Foreground="{StaticResource SubtleTextBrush}" />
                             </StackPanel>
                         </Grid>
                     </StackPanel>

@@ -160,7 +160,8 @@ public partial class VideoTile : UserControl
         _uiTimer.Tick += (_, _) => UpdateProgress();
         _uiTimer.Start();
 
-        VolumeSlider.Value = settings.Volume;
+        VolumeSlider.Value = Math.Clamp(settings.Volume, 0, (int)VolumeSlider.Maximum);
+        UpdateVolumeText();
         _autoSizePending = settings.AutoResizeWindowToVideo;
 
         InitPlaylist(paths);
@@ -225,7 +226,8 @@ public partial class VideoTile : UserControl
     private void Tile_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         TimeText.Visibility = e.NewSize.Width < 430 ? Visibility.Collapsed : Visibility.Visible;
-        VolumeSlider.Visibility = e.NewSize.Width < 360 ? Visibility.Collapsed : Visibility.Visible;
+        VolumeSlider.Visibility = e.NewSize.Width < 380 ? Visibility.Collapsed : Visibility.Visible;
+        VolumeText.Visibility = e.NewSize.Width < 500 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ---------------------------------------------------------------- Activation
@@ -607,6 +609,26 @@ public partial class VideoTile : UserControl
             UpdateMuteGlyph();
         }
         if (_settings != null) _settings.Volume = volume;
+        UpdateVolumeText();
+    }
+
+    private void UpdateVolumeText()
+    {
+        if (VolumeText == null) return;
+        int volume = (int)Math.Round(VolumeSlider.Value);
+        // Au-delà de 100 %, le son est amplifié (il peut saturer) : on le signale en couleur d'accent.
+        VolumeText.Text = $"{volume} %";
+        VolumeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "SubtleTextBrush");
+    }
+
+    /// <summary>Molette sur le curseur : ±5 %, avec un arrêt à 100 % pour retrouver facilement le volume normal.</summary>
+    private void VolumeSlider_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        double current = VolumeSlider.Value;
+        double next = current + (e.Delta > 0 ? 5 : -5);
+        if ((current < 100 && next > 100) || (current > 100 && next < 100)) next = 100;
+        VolumeSlider.Value = Math.Clamp(next, VolumeSlider.Minimum, VolumeSlider.Maximum);
+        e.Handled = true;
     }
 
     private void MuteButton_Click(object sender, RoutedEventArgs e)
@@ -745,7 +767,7 @@ public partial class VideoTile : UserControl
         _autoSizePending = false; // on garde la taille enregistrée
         _startPaused = true;
         _pendingMute = saved.Muted;
-        VolumeSlider.Value = Math.Clamp(saved.Volume, 0, 100);
+        VolumeSlider.Value = Math.Clamp(saved.Volume, 0, (int)VolumeSlider.Maximum);
         SetRepeat(saved.Repeat);
     }
 

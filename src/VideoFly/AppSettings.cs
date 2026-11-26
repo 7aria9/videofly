@@ -15,7 +15,7 @@ public sealed class AppSettings
     /// <summary>Disposition choisie (voir <see cref="TileLayouts"/>).</summary>
     public string? LayoutId { get; set; }
 
-    /// <summary>Volume des nouvelles vignettes (0 à 100), mémorisé d'une session à l'autre.</summary>
+    /// <summary>Volume des nouvelles vignettes (0 à 250 ; au-delà de 100 le son est amplifié), mémorisé d'une session à l'autre.</summary>
     public int Volume { get; set; } = 80;
 
     /// <summary>Que faire des vidéos ouvertes quand on ferme VideoFly.</summary>
