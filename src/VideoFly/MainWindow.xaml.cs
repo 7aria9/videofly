@@ -116,6 +116,7 @@ public partial class MainWindow : Window
         Desktop.Children.Add(tile);
         _tiles.Add(tile);
         tile.PlayStateChanged += (_, _) => UpdateGlobalPlayPause();
+        tile.SetRenderingSuspended(WindowState == WindowState.Minimized);
         ActivateTile(tile);
         UpdateEmptyHint();
         ApplyAutoLayout();
@@ -553,6 +554,9 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, EventArgs e)
     {
+        bool minimized = WindowState == WindowState.Minimized;
+        foreach (var tile in _tiles) tile.SetRenderingSuspended(minimized);
+
         bool maximized = WindowState == WindowState.Maximized;
         // Sans cadre Windows, une fenêtre agrandie déborde de l'écran de la largeur de la bordure : on compense.
         var t = SystemParameters.WindowResizeBorderThickness;

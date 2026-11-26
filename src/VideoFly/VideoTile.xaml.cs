@@ -103,6 +103,9 @@ public partial class VideoTile : UserControl
         TogglePlayPause();
     }
 
+    /// <summary>Fenêtre réduite : on arrête de dessiner les images (le son et la lecture continuent).</summary>
+    public void SetRenderingSuspended(bool suspended) => _renderer.SetSuspended(suspended);
+
     /// <summary>Placée par l'organisation automatique : on ne l'adapte pas à la taille de la vidéo.</summary>
     public bool ArrangedByLayout { get; set; }
 
