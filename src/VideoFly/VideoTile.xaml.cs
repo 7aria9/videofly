@@ -18,8 +18,8 @@ namespace VideoFly;
 /// </summary>
 public partial class VideoTile : UserControl
 {
-    private const string GlyphPlay = "";
-    private const string GlyphPause = "";
+    internal const string GlyphPlay = "";
+    internal const string GlyphPause = "";
     private const string GlyphVolume = "";
     private const string GlyphMute = "";
     private const string GlyphMaximize = "";
@@ -79,6 +79,28 @@ public partial class VideoTile : UserControl
 
     /// <summary>Un nouvel élément de la playlist commence (pour l'historique).</summary>
     public event Action<string>? ItemStarted;
+
+    /// <summary>L'état lecture/pause a changé (pour le bouton global).</summary>
+    public event EventHandler? PlayStateChanged;
+
+    /// <summary>Vrai si la vignette est en train de lire.</summary>
+    public bool IsPlaying => !_closed && _player.IsPlaying;
+
+    /// <summary>Met en pause (utilisé par le bouton global). Sans effet si rien ne joue.</summary>
+    public void Pause()
+    {
+        if (!_player.IsPlaying) return;
+        ResetSpeed();
+        _player.SetPause(true);
+    }
+
+    /// <summary>Reprend la lecture (utilisé par le bouton global). Ne fait rien si la playlist est vide.</summary>
+    public void Resume()
+    {
+        if (_player.IsPlaying) return;
+        if (_media == null && _playlist.Items.Count == 0) return;
+        TogglePlayPause();
+    }
 
     /// <summary>Placée par l'organisation automatique : on ne l'adapte pas à la taille de la vidéo.</summary>
     public bool ArrangedByLayout { get; set; }
@@ -418,6 +440,7 @@ public partial class VideoTile : UserControl
     private void UpdatePlayPauseGlyph()
     {
         PlayPauseButton.Content = _player.IsPlaying ? GlyphPause : GlyphPlay;
+        PlayStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // ---------------------------------------------------------------- Avance / retour rapide

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F2A4A"/>
+      <stop offset="1" stop-color="#0B0D14"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7DB8FF"/>
+      <stop offset="1" stop-color="#2F6BFF"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3D8BFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#3D8BFF" stop-opacity="0.15"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.62" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#3D8BFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3D8BFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#bg)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="57.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  <circle cx="150" cy="128" r="96" fill="url(#glow)"/>
+  <!-- aile : trois plumes en éventail derrière le triangle -->
+  <path d="M112 92 C 86 84, 58 88, 36 104 C 62 102, 86 104, 112 112 Z" fill="url(#wing)"/>
+  <path d="M112 116 C 84 114, 58 122, 40 140 C 64 134, 88 132, 112 134 Z" fill="url(#wing)" opacity="0.8"/>
+  <path d="M112 140 C 88 144, 68 156, 56 174 C 76 164, 96 158, 114 156 Z" fill="url(#wing)" opacity="0.6"/>
+  <!-- triangle lecture aux coins arrondis -->
+  <path d="M118 78 Q 108 72 108 84 L 108 172 Q 108 184 118 178 L 198 134 Q 208 128 198 122 Z" fill="url(#play)"/>
+  <path d="M118 78 Q 108 72 108 84 L 108 128 L 203 128 Q 206 125 198 122 Z" fill="#FFFFFF" opacity="0.12"/>
+</svg>

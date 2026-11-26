@@ -9,7 +9,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>VideoFly</RootNamespace>
     <AssemblyName>VideoFly</AssemblyName>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
+    <ApplicationIcon>VideoFly.ico</ApplicationIcon>
     <!-- Permet de compiler aussi depuis Linux/macOS (la CI tourne sous Windows). -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -21,6 +22,11 @@
   <ItemGroup>
     <PackageReference Include="LibVLCSharp" Version="3.10.2" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.24" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="VideoFly.ico" />
+    <Resource Include="Assets\logo-32.png" />
   </ItemGroup>
 
 </Project>

@@ -202,7 +202,7 @@ public partial class VideoTile
 
     private void PlaylistList_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space)
+        if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.None)
         {
             TogglePlayPause(); // Espace reste Lecture / Pause, même dans la liste
             e.Handled = true;
