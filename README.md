@@ -29,6 +29,11 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
   où on s'était arrêté. Un clic rouvre la vidéo dans une nouvelle vignette et reprend à cette position.
   « Effacer l'historique » le vide.
 - Glisser-déposer de fichiers vidéo sur la fenêtre
+- **Programme par défaut** : Options › « Définir par défaut… » déclare VideoFly auprès de Windows
+  (pour l'utilisateur courant, sans droits administrateur) et ouvre les réglages Windows où il suffit
+  de le choisir. Ensuite, un double-clic sur une vidéo l'ouvre dans VideoFly ; si VideoFly est déjà
+  ouvert, la vidéo s'ajoute dans une nouvelle vignette de la même fenêtre.
+  Si on déplace le dossier de VideoFly, il suffit de le relancer une fois pour mettre à jour le chemin.
 
 Les réglages et l'historique sont enregistrés dans `%AppData%\VideoFly\settings.json`.
 
@@ -43,7 +48,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.3.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.4.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible

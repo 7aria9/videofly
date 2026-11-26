@@ -32,6 +32,23 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- Ouverture
 
+    /// <summary>Ouvre plusieurs vidéos (arguments de lancement, double-clic dans l'Explorateur).</summary>
+    public void OpenFiles(IEnumerable<string> paths, bool bringToFront = false)
+    {
+        foreach (var path in paths)
+            OpenFile(path);
+
+        if (bringToFront)
+        {
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Activate();
+            // Windows n'autorise pas toujours une application à passer devant : petite astuce.
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+    }
+
     /// <summary>Ouvre une vidéo dans une nouvelle vignette.</summary>
     /// <param name="resume">Reprendre là où on s'était arrêté (ouverture depuis l'historique).</param>
     public void OpenFile(string path, Point? position = null, bool resume = false)
@@ -51,7 +68,7 @@ public partial class MainWindow : Window
             Height = Math.Min(DefaultTileHeight, Math.Max(240, Desktop.ActualHeight)),
         };
         tile.CloseRequested += (_, _) => CloseTile(tile);
-        tile.Activated += (_, _) => Activate(tile);
+        tile.Activated += (_, _) => ActivateTile(tile);
         tile.ManuallyArranged += (_, _) => _settings.AutoLayout = false; // l'utilisateur reprend la main
 
         Point p = position ?? NextCascadePosition(tile.Width, tile.Height);
@@ -60,7 +77,7 @@ public partial class MainWindow : Window
 
         Desktop.Children.Add(tile);
         _tiles.Add(tile);
-        Activate(tile);
+        ActivateTile(tile);
         UpdateEmptyHint();
         ApplyAutoLayout();
     }
@@ -83,7 +100,7 @@ public partial class MainWindow : Window
         {
             Title = "Ouvrir une vidéo",
             Multiselect = true,
-            Filter = "Vidéos|*.mp4;*.mkv;*.avi;*.mov;*.wmv;*.webm;*.flv;*.m4v;*.mpg;*.mpeg;*.ts;*.m2ts;*.3gp;*.ogv|Tous les fichiers|*.*",
+            Filter = FileAssociations.OpenDialogFilter,
         };
         if (dialog.ShowDialog(this) == true)
             foreach (var file in dialog.FileNames)
@@ -100,7 +117,7 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- Gestion des vignettes
 
-    private void Activate(VideoTile tile)
+    private void ActivateTile(VideoTile tile)
     {
         Panel.SetZIndex(tile, ++_zOrder);
         if (_activeTile == tile) return;
@@ -126,7 +143,7 @@ public partial class MainWindow : Window
         {
             _activeTile = null;
             var next = _tiles.OrderByDescending(Panel.GetZIndex).FirstOrDefault();
-            if (next != null) Activate(next);
+            if (next != null) ActivateTile(next);
         }
         if (_tiles.Count == 0) _cascadeIndex = 0;
         UpdateEmptyHint();

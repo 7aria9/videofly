@@ -9,7 +9,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>VideoFly</RootNamespace>
     <AssemblyName>VideoFly</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <!-- Permet de compiler aussi depuis Linux/macOS (la CI tourne sous Windows). -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
