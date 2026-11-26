@@ -36,6 +36,9 @@ public partial class VideoTile : UserControl
     private bool _closed;
     private bool _repeat = true; // relecture automatique en fin de média (activée par défaut)
     private bool _startPaused;   // session restaurée : on se place au bon moment puis on reste en pause
+    private long _restoreTargetMs = -1; // moment à atteindre (reprise) tant qu'il n'est pas confirmé
+    private int _restoreTicks;          // tentatives de vérification de la reprise
+    private bool _muteAfterRestore;     // son coupé voulu une fois la reprise faite
     private bool? _pendingMute;  // le son ne peut être coupé qu'une fois la lecture lancée   // reprise à la dernière position (historique), appliquée au premier démarrage
 
     // Avance / retour rapide
@@ -91,6 +94,7 @@ public partial class VideoTile : UserControl
     /// <summary>Met en pause (utilisé par le bouton global). Sans effet si rien ne joue.</summary>
     public void Pause()
     {
+        CancelStartPaused();
         if (!_player.IsPlaying) return;
         ResetSpeed();
         _player.SetPause(true);
@@ -250,17 +254,20 @@ public partial class VideoTile : UserControl
     private void OnPlaying()
     {
         _player.Volume = (int)VolumeSlider.Value;
-        if (_pendingMute is bool mute)
-        {
-            _player.Mute = mute;
-            _pendingMute = null;
-            UpdateMuteGlyph();
-        }
+        bool wantMute = _pendingMute ?? _player.Mute;
+        _pendingMute = null;
         if (_startPaused)
         {
-            _startPaused = false;
-            _player.SetPause(true);
+            // Session restaurée : on reste muet le temps d'atteindre le bon moment, puis on met en pause.
+            _muteAfterRestore = wantMute;
+            _player.Mute = true;
         }
+        else
+        {
+            _player.Mute = wantMute;
+        }
+        UpdateMuteGlyph();
+        CheckRestorePosition();
         UpdatePlayPauseGlyph();
         UpdateAudioInfo();
         ShowControls(); // relance le délai avant de les effacer
@@ -449,8 +456,18 @@ public partial class VideoTile : UserControl
 
     private void PlayPauseButton_Click(object sender, RoutedEventArgs e) => TogglePlayPause();
 
+    /// <summary>L'utilisateur prend la main pendant une restauration : on ne mettra plus en pause de nous-mêmes.</summary>
+    private void CancelStartPaused()
+    {
+        if (!_startPaused) return;
+        _startPaused = false;
+        _player.Mute = _muteAfterRestore;
+        UpdateMuteGlyph();
+    }
+
     public void TogglePlayPause()
     {
+        CancelStartPaused();
         if (_media == null)
         {
             // Rien en cours : on lance la playlist (ou on l'affiche si elle est vide).
@@ -686,8 +703,62 @@ public partial class VideoTile : UserControl
 
     // ---------------------------------------------------------------- Barre de progression
 
+    /// <summary>
+    /// Reprise au moment enregistré (session, .flyv, historique). L'option start-time ne suffit pas toujours :
+    /// on vérifie la position réelle et on relance la recherche tant qu'elle n'est pas atteinte
+    /// (toutes les 750 ms, 15 s au plus). Une vignette restaurée n'est mise en pause qu'une fois arrivée au bon moment.
+    /// </summary>
+    private void CheckRestorePosition()
+    {
+        if (_closed || _media == null) return;
+        if (_restoreTargetMs >= 0)
+        {
+            var state = _player.State;
+            if (state is VLCState.Opening or VLCState.Buffering or VLCState.NothingSpecial) return; // pas encore prêt
+            if (state is VLCState.Ended or VLCState.Error or VLCState.Stopped)
+            {
+                _restoreTargetMs = -1;
+            }
+            else if (_player.IsSeekable && _player.Length > 0)
+            {
+                long target = Math.Min(_restoreTargetMs, Math.Max(0, _player.Length - 2000));
+                if (Math.Abs(_player.Time - target) <= 3000)
+                {
+                    _restoreTargetMs = -1; // atteint
+                }
+                else if (_restoreTicks++ >= 60)
+                {
+                    _restoreTargetMs = -1; // on abandonne au bout de 15 s
+                }
+                else if (_restoreTicks % 3 == 1)
+                {
+                    _player.Time = target; // la recherche précédente n'a pas pris : on recommence
+                    return;
+                }
+                else
+                {
+                    return; // on laisse le temps à la recherche d'aboutir
+                }
+            }
+            else
+            {
+                if (_restoreTicks++ >= 60) _restoreTargetMs = -1;
+                else return;
+            }
+        }
+
+        if (_startPaused && _player.State == VLCState.Playing)
+        {
+            _startPaused = false;
+            _player.SetPause(true);
+            _player.Mute = _muteAfterRestore;
+            UpdateMuteGlyph();
+        }
+    }
+
     private void UpdateProgress()
     {
+        if (_restoreTargetMs >= 0 || _startPaused) CheckRestorePosition();
         long length = _player.Length;
         long time = Math.Max(0, _player.Time);
         TimeText.Text = $"{Format(time)} / {Format(Math.Max(0, length))}";
@@ -781,7 +852,9 @@ public partial class VideoTile : UserControl
     {
         if (_closed) return (0, 0);
         long length = _player.Length;
-        long time = _player.State == VLCState.Ended ? 0 : Math.Max(0, _player.Time);
+        // Reprise pas encore confirmée : le moment voulu reste celui à enregistrer.
+        long time = _restoreTargetMs >= 0 ? _restoreTargetMs
+                  : _player.State == VLCState.Ended ? 0 : Math.Max(0, _player.Time);
         return (time, length);
     }
 
