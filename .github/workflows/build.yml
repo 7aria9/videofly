@@ -1,0 +1,35 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restauration des paquets
+        run: dotnet restore VideoFly.sln
+
+      - name: Compilation
+        run: dotnet build VideoFly.sln -c Release --no-restore
+
+      - name: Publication (exécutable autonome Windows x64)
+        run: dotnet publish src/VideoFly/VideoFly.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Mise à disposition de l'exécutable
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoFly-win-x64
+          path: publish/
+          retention-days: 30
