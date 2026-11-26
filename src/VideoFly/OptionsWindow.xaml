@@ -22,6 +22,24 @@
             </StackPanel>
         </Border>
 
+        <TextBlock Text="FERMETURE" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource SubtleTextBrush}"
+                   Margin="0,20,0,8" />
+        <Border Background="{StaticResource ElevatedBrush}" CornerRadius="8" Padding="16,14">
+            <StackPanel>
+                <TextBlock Text="Vidéos ouvertes à la fermeture" />
+                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource SubtleTextBrush}" Margin="0,2,0,10"
+                           Text="Les vidéos gardées sont rouvertes au lancement suivant, à la même place et au même moment, en pause." />
+                <StackPanel>
+                    <RadioButton x:Name="OnCloseAsk" GroupName="OnClose" Content="Demander à chaque fois"
+                                 Foreground="{StaticResource TextBrush}" Margin="0,0,0,6" />
+                    <RadioButton x:Name="OnCloseKeep" GroupName="OnClose" Content="Toujours les garder"
+                                 Foreground="{StaticResource TextBrush}" Margin="0,0,0,6" />
+                    <RadioButton x:Name="OnCloseDiscard" GroupName="OnClose" Content="Ne jamais les garder"
+                                 Foreground="{StaticResource TextBrush}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <TextBlock Text="PROGRAMME PAR DÉFAUT" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource SubtleTextBrush}"
                    Margin="0,20,0,8" />
         <Border Background="{StaticResource ElevatedBrush}" CornerRadius="8" Padding="16,14">

@@ -43,9 +43,13 @@ public sealed class VideoFrameRenderer : IDisposable
     /// <summary>Taille de la vidéo en pixels, connue dès la première image (thread UI).</summary>
     public event Action<int, int>? VideoSizeChanged;
 
-    public VideoFrameRenderer(MediaPlayer player, Dispatcher dispatcher)
+    private readonly int _maxWidth;
+
+    /// <param name="maxWidth">Si &gt; 0, LibVLC réduit l'image à cette largeur (aperçus : moins de mémoire et de calcul).</param>
+    public VideoFrameRenderer(MediaPlayer player, Dispatcher dispatcher, int maxWidth = 0)
     {
         _dispatcher = dispatcher;
+        _maxWidth = maxWidth;
         _formatCb = OnFormat;
         _cleanupCb = OnCleanup;
         _lockCb = OnLock;
@@ -62,6 +66,14 @@ public sealed class VideoFrameRenderer : IDisposable
         Marshal.Copy("RV32"u8.ToArray(), 0, chroma, 4);
 
         int w = (int)width, h = (int)height;
+        if (_maxWidth > 0 && w > _maxWidth && w > 0)
+        {
+            // LibVLC met l'image à l'échelle si on lui demande une autre taille.
+            h = Math.Max(2, (int)Math.Round((double)h * _maxWidth / w) & ~1);
+            w = _maxWidth & ~1;
+            width = (uint)w;
+            height = (uint)h;
+        }
         int stride = w * 4;
         pitches = (uint)stride;
         lines = (uint)h;

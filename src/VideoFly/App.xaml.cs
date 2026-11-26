@@ -28,8 +28,13 @@ public partial class App : Application
         var window = new MainWindow();
         window.Show();
 
-        // Fichiers passés en argument (double-clic, "Ouvrir avec…") : une vignette chacun.
-        window.OpenFiles(e.Args);
+        // Une fois la fenêtre mise en page (taille de la zone connue) : vidéos gardées à la dernière fermeture,
+        // puis fichiers passés en argument (double-clic, "Ouvrir avec…"), une vignette chacun.
+        window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            window.RestoreSession();
+            window.OpenFiles(e.Args);
+        });
 
         if (_instance.IsFirst)
             _instance.StartListening(files => Dispatcher.BeginInvoke(() => window.OpenFiles(files, bringToFront: true)));
