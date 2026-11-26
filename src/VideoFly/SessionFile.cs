@@ -16,6 +16,10 @@ public sealed class SessionFile
     public DateTime SavedAt { get; set; } = DateTime.Now;
     public bool AutoLayout { get; set; }
     public string? LayoutId { get; set; }
+
+    /// <summary>Taille de la zone des vignettes à l'enregistrement : si la fenêtre a changé, on remet les places à l'échelle.</summary>
+    public double DesktopWidth { get; set; }
+    public double DesktopHeight { get; set; }
     public List<SavedTile> Tiles { get; set; } = new();
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };

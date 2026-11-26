@@ -17,6 +17,7 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
   - la vidéo s'adapte à la taille de la vignette
 - Bouton lecture / pause global dans la barre de titre (Ctrl+Espace) : si une vidéo joue, tout se met en pause ;
   sinon, toutes les vignettes repartent.
+- La fenêtre de VideoFly rouvre à la même place et à la même taille (ou agrandie).
 - À la fermeture, VideoFly propose de garder les vidéos ouvertes : au lancement suivant, elles sont rouvertes
   à la même place, au même moment (en pause), avec leur playlist, leur volume et la relecture
   (« Ne plus demander », modifiable dans les Options).

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RestoreWindowPlacement();
         UpdateEmptyHint();
 
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Open, (_, _) => ShowOpenDialog()));
@@ -153,13 +154,16 @@ public partial class MainWindow : Window
     {
         var session = _settings.Session;
         if (session == null || session.Count == 0) return;
-        RestoreTiles(session, _settings.AutoLayout);
+        RestoreTiles(session, _settings.AutoLayout, new Size(_settings.SessionDesktopWidth, _settings.SessionDesktopHeight));
     }
 
     /// <summary>Recrée les vignettes enregistrées (fichiers disparus ignorés). Renvoie le nombre de vignettes rouvertes.</summary>
-    private int RestoreTiles(IEnumerable<SavedTile> session, bool autoLayout)
+    /// <param name="savedDesktop">Taille de la zone à l'enregistrement : si elle diffère, les places sont remises à l'échelle.</param>
+    private int RestoreTiles(IEnumerable<SavedTile> session, bool autoLayout, Size savedDesktop)
     {
         int count = 0;
+        double sx = savedDesktop.Width > 0 && Desktop.ActualWidth > 0 ? Desktop.ActualWidth / savedDesktop.Width : 1;
+        double sy = savedDesktop.Height > 0 && Desktop.ActualHeight > 0 ? Desktop.ActualHeight / savedDesktop.Height : 1;
         _settings.AutoLayout = false; // on replace d'abord chaque vignette où elle était
         foreach (var saved in session)
         {
@@ -172,6 +176,13 @@ public partial class MainWindow : Window
                 int index = current != null ? existing.IndexOf(current) : -1;
                 saved.CurrentIndex = Math.Max(0, index);
                 if (index < 0) saved.PositionMs = 0;
+            }
+            if (Math.Abs(sx - 1) > 0.001 || Math.Abs(sy - 1) > 0.001)
+            {
+                saved.X *= sx;
+                saved.Y *= sy;
+                saved.Width *= sx;
+                saved.Height *= sy;
             }
             AddTile(existing, null, saved: saved);
             count++;
@@ -217,6 +228,8 @@ public partial class MainWindow : Window
         {
             AutoLayout = _settings.AutoLayout,
             LayoutId = _settings.LayoutId,
+            DesktopWidth = Desktop.ActualWidth,
+            DesktopHeight = Desktop.ActualHeight,
             Tiles = tiles.Select(t => t.ToSaved()).ToList(),
         };
         try
@@ -248,7 +261,7 @@ public partial class MainWindow : Window
 
         foreach (var tile in _tiles.ToList()) CloseTile(tile);
         if (file.LayoutId != null) _settings.LayoutId = file.LayoutId;
-        int opened = RestoreTiles(file.Tiles, file.AutoLayout);
+        int opened = RestoreTiles(file.Tiles, file.AutoLayout, new Size(file.DesktopWidth, file.DesktopHeight));
         _sessionFilePath = path;
 
         int missing = file.Tiles.Count - opened;
@@ -289,6 +302,8 @@ public partial class MainWindow : Window
 
         // L'ordre des vignettes est celui des places de la disposition : on le conserve.
         _settings.Session = keep ? tiles.Select(t => t.ToSaved()).ToList() : null;
+        _settings.SessionDesktopWidth = Desktop.ActualWidth;
+        _settings.SessionDesktopHeight = Desktop.ActualHeight;
         return true;
     }
 
@@ -776,6 +791,41 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Remet la fenêtre où elle était (si cet endroit est toujours visible : écran débranché…).</summary>
+    private void RestoreWindowPlacement()
+    {
+        var w = _settings.Window;
+        if (w == null || w.Width < MinWidth || w.Height < MinHeight) return;
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                              SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var bounds = new Rect(w.Left, w.Top, w.Width, w.Height);
+        if (!screen.IntersectsWith(bounds) || Rect.Intersect(screen, bounds).Width < 100) return;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = w.Left;
+        Top = w.Top;
+        Width = w.Width;
+        Height = w.Height;
+        if (w.Maximized)
+        {
+            WindowState = WindowState.Maximized;
+            Window_StateChanged(this, EventArgs.Empty); // marges de la fenêtre agrandie sans cadre
+        }
+    }
+
+    private void SaveWindowPlacement()
+    {
+        var r = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        if (r.IsEmpty || r.Width <= 0) return;
+        _settings.Window = new WindowPlacement
+        {
+            Left = r.Left,
+            Top = r.Top,
+            Width = r.Width,
+            Height = r.Height,
+            Maximized = WindowState == WindowState.Maximized,
+        };
+    }
+
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (!SaveSessionOnClose())
@@ -783,6 +833,7 @@ public partial class MainWindow : Window
             e.Cancel = true;
             return;
         }
+        SaveWindowPlacement();
         foreach (var tile in _tiles) RememberPosition(tile);
         _settings.Save();
         foreach (var tile in _tiles.ToList()) tile.Shutdown();

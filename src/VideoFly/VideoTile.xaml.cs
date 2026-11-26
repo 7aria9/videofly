@@ -35,7 +35,6 @@ public partial class VideoTile : UserControl
     private Media? _media;
     private bool _closed;
     private bool _repeat = true; // relecture automatique en fin de média (activée par défaut)
-    private long _resumeAtMs;
     private bool _startPaused;   // session restaurée : on se place au bon moment puis on reste en pause
     private bool? _pendingMute;  // le son ne peut être coupé qu'une fois la lecture lancée   // reprise à la dernière position (historique), appliquée au premier démarrage
 
@@ -223,11 +222,6 @@ public partial class VideoTile : UserControl
 
     private void OnPlaying()
     {
-        if (_resumeAtMs > 0)
-        {
-            _player.Time = _resumeAtMs;
-            _resumeAtMs = 0;
-        }
         _player.Volume = (int)VolumeSlider.Value;
         if (_pendingMute is bool mute)
         {
@@ -451,8 +445,7 @@ public partial class VideoTile : UserControl
             case VLCState.Ended:
             case VLCState.Stopped:
             case VLCState.Error:
-                _player.Stop();
-                _player.Play(_media);
+                RestartCurrentMedia();
                 break;
             default:
                 _player.Play();
@@ -502,8 +495,7 @@ public partial class VideoTile : UserControl
 
         if (_player.State is VLCState.Ended or VLCState.Stopped)
         {
-            _player.Stop();
-            _player.Play(_media);
+            RestartCurrentMedia();
         }
         else if (!_player.IsPlaying)
         {

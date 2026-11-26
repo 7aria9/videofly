@@ -24,6 +24,13 @@ public sealed class AppSettings
     /// <summary>Vidéos ouvertes à la dernière fermeture (si l'utilisateur a choisi de les garder).</summary>
     public List<SavedTile>? Session { get; set; }
 
+    /// <summary>Taille de la zone des vignettes quand <see cref="Session"/> a été enregistrée (pour remettre à l'échelle).</summary>
+    public double SessionDesktopWidth { get; set; }
+    public double SessionDesktopHeight { get; set; }
+
+    /// <summary>Place et taille de la fenêtre principale à la dernière fermeture.</summary>
+    public WindowPlacement? Window { get; set; }
+
     /// <summary>Historique des vidéos ouvertes, la plus récente en premier.</summary>
     public List<HistoryEntry> History { get; set; } = new();
 
@@ -121,4 +128,14 @@ public sealed class SavedTile
     public int Volume { get; set; } = 80;
     public bool Muted { get; set; }
     public bool Repeat { get; set; } = true;
+}
+
+/// <summary>Place de la fenêtre principale (taille « normale » même si elle était agrandie).</summary>
+public sealed class WindowPlacement
+{
+    public double Left { get; set; }
+    public double Top { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public bool Maximized { get; set; }
 }
