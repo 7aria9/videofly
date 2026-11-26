@@ -36,7 +36,14 @@
                         </LinearGradientBrush>
                     </Grid.Background>
                     <Thumb x:Name="TitleThumb" Style="{StaticResource InvisibleThumb}" Cursor="SizeAll"
-                           DragDelta="TitleThumb_DragDelta" MouseDoubleClick="TitleThumb_DoubleClick" />
+                           DragDelta="TitleThumb_DragDelta" DragCompleted="TitleThumb_DragCompleted"
+                           MouseDoubleClick="TitleThumb_DoubleClick">
+                        <Thumb.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Mettre à la place principale" Click="MoveToMain_Click" />
+                            </ContextMenu>
+                        </Thumb.ContextMenu>
+                    </Thumb>
                     <TextBlock x:Name="TitleText" Text="Vidéo" Foreground="{StaticResource TextBrush}" FontSize="12.5"
                                FontWeight="SemiBold" VerticalAlignment="Top" Margin="14,10,76,0"
                                TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />

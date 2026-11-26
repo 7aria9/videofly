@@ -70,6 +70,9 @@ public partial class MainWindow : Window
         tile.CloseRequested += (_, _) => CloseTile(tile);
         tile.Activated += (_, _) => ActivateTile(tile);
         tile.ManuallyArranged += (_, _) => _settings.AutoLayout = false; // l'utilisateur reprend la main
+        tile.LayoutDragMoved += (_, _) => ShowDropTarget(tile);
+        tile.LayoutDragDropped += (_, _) => DropTileOnSlot(tile);
+        tile.MoveToMainRequested += (_, _) => MoveToMainSlot(tile);
 
         Point p = position ?? NextCascadePosition(tile.Width, tile.Height);
         Canvas.SetLeft(tile, Math.Max(0, Math.Min(p.X, Desktop.ActualWidth - tile.Width)));
@@ -171,11 +174,132 @@ public partial class MainWindow : Window
     /// <summary>Vignettes concernées par l'organisation (une vignette agrandie reste agrandie).</summary>
     private List<VideoTile> ArrangeableTiles => _tiles.Where(t => !t.IsMaximized).ToList();
 
-    /// <summary>Applique une disposition et active l'organisation automatique.</summary>
+    /// <summary>
+    /// Applique une disposition et active l'organisation automatique.
+    /// Chaque vignette va à la place la plus proche de l'endroit où elle se trouve :
+    /// on peut donc déplacer les vignettes à la main avant de choisir la disposition.
+    /// </summary>
     private void ApplyLayout(string id)
     {
         _settings.LayoutId = id;
         _settings.AutoLayout = true;
+
+        var tiles = ArrangeableTiles;
+        var layout = TileLayouts.Find(id, tiles.Count, DesktopArea);
+        if (layout != null) SetArrangeableOrder(AssignByProximity(tiles, layout.Rects));
+        ApplyAutoLayout();
+    }
+
+    /// <summary>Associe chaque vignette à une place, la plus proche d'abord (centre à centre).</summary>
+    private static List<VideoTile> AssignByProximity(List<VideoTile> tiles, IReadOnlyList<Rect> slots)
+    {
+        static Point Center(Rect r) => new(r.X + r.Width / 2, r.Y + r.Height / 2);
+        var pairs = from t in tiles.Select((tile, i) => (tile, i))
+                    from s in slots.Select((rect, j) => (rect, j))
+                    let tc = Center(t.tile.Bounds)
+                    let sc = Center(s.rect)
+                    orderby (tc - sc).LengthSquared, t.i
+                    select (tile: t.tile, slot: s.j);
+
+        var result = new VideoTile?[slots.Count];
+        var used = new HashSet<VideoTile>();
+        foreach (var (tile, slot) in pairs)
+        {
+            if (result[slot] != null || used.Contains(tile)) continue;
+            result[slot] = tile;
+            used.Add(tile);
+        }
+        return result.Select(t => t!).ToList();
+    }
+
+    /// <summary>Range les vignettes non agrandies dans cet ordre (ordre des places de la disposition).</summary>
+    private void SetArrangeableOrder(List<VideoTile> ordered)
+    {
+        var positions = _tiles.Select((t, i) => (t, i)).Where(x => !x.t.IsMaximized).Select(x => x.i).ToList();
+        for (int k = 0; k < positions.Count && k < ordered.Count; k++)
+            _tiles[positions[k]] = ordered[k];
+    }
+
+    private void SwapTiles(VideoTile a, VideoTile b)
+    {
+        int ia = _tiles.IndexOf(a), ib = _tiles.IndexOf(b);
+        if (ia < 0 || ib < 0 || ia == ib) return;
+        (_tiles[ia], _tiles[ib]) = (_tiles[ib], _tiles[ia]);
+    }
+
+    /// <summary>Place de la disposition actuelle sous le pointeur, ou -1.</summary>
+    private int SlotUnderMouse(out Rect slotRect)
+    {
+        slotRect = Rect.Empty;
+        var tiles = ArrangeableTiles;
+        var layout = TileLayouts.Find(_settings.LayoutId, tiles.Count, DesktopArea);
+        if (layout == null) return -1;
+        var mouse = Mouse.GetPosition(Desktop);
+        for (int i = 0; i < layout.Rects.Count; i++)
+            if (layout.Rects[i].Contains(mouse))
+            {
+                slotRect = layout.Rects[i];
+                return i;
+            }
+        return -1;
+    }
+
+    private Border? _dropTarget;
+
+    /// <summary>Pendant le glissement d'une vignette, montre la place où elle ira.</summary>
+    private void ShowDropTarget(VideoTile tile)
+    {
+        if (!_settings.AutoLayout) return;
+        if (_dropTarget == null)
+        {
+            _dropTarget = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x33, 0x3D, 0x8B, 0xFF)),
+                BorderBrush = (Brush)FindResource("AccentBrush"),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(10),
+                IsHitTestVisible = false,
+            };
+            Panel.SetZIndex(_dropTarget, int.MaxValue);
+            Desktop.Children.Add(_dropTarget);
+        }
+
+        if (SlotUnderMouse(out var rect) < 0)
+        {
+            _dropTarget.Visibility = Visibility.Collapsed;
+            return;
+        }
+        _dropTarget.Visibility = Visibility.Visible;
+        Canvas.SetLeft(_dropTarget, rect.X + 4);
+        Canvas.SetTop(_dropTarget, rect.Y + 4);
+        _dropTarget.Width = Math.Max(0, rect.Width - 8);
+        _dropTarget.Height = Math.Max(0, rect.Height - 8);
+    }
+
+    /// <summary>Vignette lâchée sur une place : elle échange sa place avec la vignette qui l'occupait.</summary>
+    private void DropTileOnSlot(VideoTile tile)
+    {
+        if (_dropTarget != null) _dropTarget.Visibility = Visibility.Collapsed;
+        if (!_settings.AutoLayout) return;
+
+        int slot = SlotUnderMouse(out _);
+        var tiles = ArrangeableTiles;
+        if (slot >= 0 && slot < tiles.Count) SwapTiles(tile, tiles[slot]);
+        ApplyAutoLayout(); // lâchée hors d'une place : elle revient à la sienne
+    }
+
+    /// <summary>Met la vignette à la première place (la grande, dans « 1 à gauche… » ou « 1 en haut… »).</summary>
+    private void MoveToMainSlot(VideoTile tile)
+    {
+        var tiles = ArrangeableTiles;
+        if (tiles.Count == 0 || tile.IsMaximized) return;
+        SwapTiles(tile, tiles[0]);
+        if (!_settings.AutoLayout)
+        {
+            // Pas encore de disposition : on active la dernière choisie (ou « 1 à gauche, le reste à droite »).
+            _settings.LayoutId ??= TileLayouts.MainLeft;
+            _settings.AutoLayout = true;
+        }
         ApplyAutoLayout();
     }
 
