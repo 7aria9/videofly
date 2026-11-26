@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
@@ -47,6 +48,10 @@ public partial class VideoTile : UserControl
     private bool _isSeeking;
     private bool _updatingSeekSlider;
 
+    // Commandes en surimpression : elles s'effacent après quelques secondes sans bouger la souris pendant la lecture.
+    private readonly DispatcherTimer _hideTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
+    private bool _controlsVisible = true;
+
     // Taille / position
     private bool _autoSizePending;
     private Rect _restoreBounds;
@@ -73,7 +78,7 @@ public partial class VideoTile : UserControl
         _settings = settings;
         FilePath = path;
         TitleText.Text = Path.GetFileName(path);
-        ToolTipService.SetToolTip(TitleBar, path);
+        ToolTipService.SetToolTip(TitleThumb, path);
 
         _player = new MediaPlayer(App.LibVlc) { EnableHardwareDecoding = true };
         _renderer = new VideoFrameRenderer(_player, Dispatcher);
@@ -83,11 +88,12 @@ public partial class VideoTile : UserControl
         // Les évènements LibVLC arrivent sur un autre thread : on repasse sur le thread UI.
         // Après la fermeture, le lecteur est libéré : on ignore les évènements encore en attente.
         _player.Playing += (_, _) => OnUi(OnPlaying);
-        _player.Paused += (_, _) => OnUi(UpdatePlayPauseGlyph);
-        _player.Stopped += (_, _) => OnUi(UpdatePlayPauseGlyph);
+        _player.Paused += (_, _) => OnUi(OnPausedOrStopped);
+        _player.Stopped += (_, _) => OnUi(OnPausedOrStopped);
         _player.EndReached += (_, _) => OnUi(OnEndReached);
         _player.EncounteredError += (_, _) => OnUi(() => TitleText.Text = $"{Path.GetFileName(path)} (erreur de lecture)");
 
+        _hideTimer.Tick += (_, _) => HideControlsIfIdle();
         _rewindTimer.Tick += RewindTimer_Tick;
         _uiTimer.Tick += (_, _) => UpdateProgress();
         _uiTimer.Start();
@@ -102,12 +108,68 @@ public partial class VideoTile : UserControl
 
     private void OnUi(Action action) => Dispatcher.BeginInvoke(() => { if (!_closed) action(); });
 
+    // ---------------------------------------------------------------- Commandes en surimpression
+
+    private void Tile_MouseMove(object sender, MouseEventArgs e) => ShowControls();
+
+    private void Tile_MouseLeave(object sender, MouseEventArgs e)
+    {
+        // La souris quitte la vignette : on efface rapidement les commandes si la vidéo joue.
+        _hideTimer.Stop();
+        _hideTimer.Interval = TimeSpan.FromSeconds(0.6);
+        _hideTimer.Start();
+    }
+
+    private void ShowControls()
+    {
+        _hideTimer.Stop();
+        _hideTimer.Interval = TimeSpan.FromSeconds(2.5);
+        if (!_controlsVisible)
+        {
+            _controlsVisible = true;
+            FadeOverlays(1, 150);
+            VideoHost.Cursor = null;
+        }
+        if (!_closed && _player.IsPlaying) _hideTimer.Start();
+    }
+
+    private void HideControlsIfIdle()
+    {
+        _hideTimer.Stop();
+        if (_closed || !_controlsVisible || !_player.IsPlaying || _isSeeking) return;
+        // On ne cache pas sous le pointeur de l'utilisateur (sauf s'il a quitté la vignette).
+        if (IsMouseOver && (BottomOverlay.IsMouseOver || TopOverlay.IsMouseOver)) return;
+        _controlsVisible = false;
+        FadeOverlays(0, 350);
+        if (IsMouseOver) VideoHost.Cursor = Cursors.None;
+    }
+
+    private void FadeOverlays(double to, int ms)
+    {
+        var animation = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms));
+        TopOverlay.BeginAnimation(OpacityProperty, animation);
+        BottomOverlay.BeginAnimation(OpacityProperty, animation);
+        TopOverlay.IsHitTestVisible = BottomOverlay.IsHitTestVisible = to > 0;
+    }
+
+    /// <summary>Coins arrondis : on découpe le contenu à la forme du cadre.</summary>
+    private void Surface_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        Surface.Clip = new RectangleGeometry(new Rect(0, 0, e.NewSize.Width, e.NewSize.Height), 9, 9);
+    }
+
+    /// <summary>Vignette étroite : on masque le temps et le curseur de volume pour garder les boutons lisibles.</summary>
+    private void Tile_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        TimeText.Visibility = e.NewSize.Width < 430 ? Visibility.Collapsed : Visibility.Visible;
+        VolumeSlider.Visibility = e.NewSize.Width < 360 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     // ---------------------------------------------------------------- Activation
 
     public void SetActive(bool active)
     {
-        Frame.BorderBrush = active ? new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)) : new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A));
-        TitleBar.Background = active ? new SolidColorBrush(Color.FromRgb(0x3A, 0x33, 0x22)) : new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A));
+        Frame.BorderBrush = (Brush)FindResource(active ? "AccentBrush" : "BorderBrush");
     }
 
     private void Tile_PreviewMouseDown(object sender, MouseButtonEventArgs e) => Activated?.Invoke(this, EventArgs.Empty);
@@ -129,10 +191,18 @@ public partial class VideoTile : UserControl
         }
         _player.Volume = (int)VolumeSlider.Value;
         UpdatePlayPauseGlyph();
+        ShowControls(); // relance le délai avant de les effacer
+    }
+
+    private void OnPausedOrStopped()
+    {
+        UpdatePlayPauseGlyph();
+        ShowControls();
     }
 
     private void OnEndReached()
     {
+        ShowControls();
         ResetSpeed();
         UpdatePlayPauseGlyph();
         UpdateProgress();
@@ -369,7 +439,8 @@ public partial class VideoTile : UserControl
             }
         }
 
-        SpeedText.Text = (mode == TrickMode.Forward ? "▶▶ x" : "◀◀ x") + speed;
+        SpeedText.Text = (mode == TrickMode.Forward ? "▶▶  x" : "◀◀  x") + speed;
+        SpeedBadge.Visibility = Visibility.Visible;
     }
 
     private void RewindTimer_Tick(object? sender, EventArgs e)
@@ -395,6 +466,7 @@ public partial class VideoTile : UserControl
         _speedIndex = -1;
         if (_player.Rate != 1f) _player.SetRate(1f);
         SpeedText.Text = string.Empty;
+        SpeedBadge.Visibility = Visibility.Collapsed;
     }
 
     // ---------------------------------------------------------------- Précédent / suivant
@@ -466,7 +538,7 @@ public partial class VideoTile : UserControl
     private static string Format(long ms)
     {
         var t = TimeSpan.FromMilliseconds(ms);
-        return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss");
+        return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
     }
 
     // ---------------------------------------------------------------- Fermeture
@@ -489,6 +561,7 @@ public partial class VideoTile : UserControl
         _closed = true;
         _uiTimer.Stop();
         _rewindTimer.Stop();
+        _hideTimer.Stop();
         _player.Stop();
         _renderer.Dispose();
         _player.Dispose();

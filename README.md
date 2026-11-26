@@ -4,6 +4,10 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
 
 ## Fonctionnalités
 
+- Interface sombre et épurée : fenêtre sans cadre Windows (barre de titre intégrée),
+  vignettes aux coins arrondis, commandes en surimpression sur la vidéo qui s'effacent
+  pendant la lecture et réapparaissent dès qu'on bouge la souris
+
 - Plusieurs vidéos en même temps : chaque vidéo s'ouvre dans sa propre **vignette** (fenêtre interne)
   - déplacement par la barre de titre, redimensionnement par les bords et les coins
   - agrandir / restaurer (bouton ou double-clic), fermer
@@ -39,7 +43,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.2.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.3.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible

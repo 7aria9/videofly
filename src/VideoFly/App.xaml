@@ -3,49 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Startup="OnStartup">
     <Application.Resources>
-        <Style x:Key="IconButton" TargetType="Button">
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="Width" Value="36" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Margin" Value="2,0" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <!-- Pas de focus clavier : la touche Espace reste dédiée à Lecture / Pause. -->
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#55FFFFFF" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#66FFFFFF" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Poignées invisibles pour déplacer / redimensionner les vignettes -->
-        <Style x:Key="InvisibleThumb" TargetType="Thumb">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Thumb">
-                        <Border Background="Transparent" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

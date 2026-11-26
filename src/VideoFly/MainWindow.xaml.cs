@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        UpdateEmptyHint();
 
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Open, (_, _) => ShowOpenDialog()));
         InputBindings.Add(new KeyBinding(ApplicationCommands.Open, Key.O, ModifierKeys.Control));
@@ -132,7 +133,13 @@ public partial class MainWindow : Window
         ApplyAutoLayout();
     }
 
-    private void UpdateEmptyHint() => EmptyHint.Visibility = _tiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    private void UpdateEmptyHint()
+    {
+        bool empty = _tiles.Count == 0;
+        EmptyHint.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        // Sans vignette, le Canvas laisse passer les clics vers le bouton « Ouvrir une vidéo ».
+        Desktop.IsHitTestVisible = !empty;
+    }
 
     private void Desktop_SizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -353,6 +360,26 @@ public partial class MainWindow : Window
         var dialog = new OptionsWindow(_settings) { Owner = this };
         if (dialog.ShowDialog() == true)
             _settings.Save();
+    }
+
+    // ---------------------------------------------------------------- Barre de titre
+
+    private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void MaximizeWindow_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+        // Sans cadre Windows, une fenêtre agrandie déborde de l'écran de la largeur de la bordure : on compense.
+        var t = SystemParameters.WindowResizeBorderThickness;
+        RootBorder.Margin = maximized ? new Thickness(t.Left + 4, t.Top + 4, t.Right + 4, t.Bottom + 4) : new Thickness(0);
+        RootBorder.BorderThickness = new Thickness(maximized ? 0 : 1);
+        MaximizeWindowButton.Content = maximized ? "\uE923" : "\uE922";
+        MaximizeWindowButton.ToolTip = maximized ? "Restaurer" : "Agrandir";
     }
 
     // ---------------------------------------------------------------- Clavier / fermeture
