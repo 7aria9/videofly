@@ -9,6 +9,12 @@ public sealed class AppSettings
     /// <summary>Adapter la vignette à la taille de la vidéo à l'ouverture d'un fichier.</summary>
     public bool AutoResizeWindowToVideo { get; set; } = true;
 
+    /// <summary>Organisation automatique des vignettes : réappliquée à chaque ouverture, fermeture ou redimensionnement.</summary>
+    public bool AutoLayout { get; set; }
+
+    /// <summary>Disposition choisie (voir <see cref="TileLayouts"/>).</summary>
+    public string? LayoutId { get; set; }
+
     /// <summary>Volume des nouvelles vignettes (0 à 100), mémorisé d'une session à l'autre.</summary>
     public int Volume { get; set; } = 80;
 

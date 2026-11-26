@@ -56,7 +56,13 @@ public partial class VideoTile : UserControl
     /// <summary>La vignette a été cliquée : elle devient la vignette active.</summary>
     public event EventHandler? Activated;
 
+    /// <summary>L'utilisateur a déplacé ou redimensionné la vignette à la main.</summary>
+    public event EventHandler? ManuallyArranged;
+
     public string FilePath { get; }
+
+    /// <summary>Placée par l'organisation automatique : on ne l'adapte pas à la taille de la vidéo.</summary>
+    public bool ArrangedByLayout { get; set; }
 
     public bool IsMaximized { get; private set; }
 
@@ -128,8 +134,9 @@ public partial class VideoTile : UserControl
     /// <summary>À l'ouverture : adapter la vignette à la taille native de la vidéo (limitée à la zone disponible).</summary>
     private void OnVideoSizeKnown(int pixelWidth, int pixelHeight)
     {
-        if (!_autoSizePending || IsMaximized || Parent is not Canvas desktop) return;
+        if (!_autoSizePending || Parent is not Canvas desktop) return;
         _autoSizePending = false;
+        if (IsMaximized || ArrangedByLayout) return;
 
         var dpi = VisualTreeHelper.GetDpi(this);
         double videoW = pixelWidth / dpi.DpiScaleX;
@@ -178,6 +185,7 @@ public partial class VideoTile : UserControl
     private void TitleThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
         if (IsMaximized || Parent is not Canvas desktop) return;
+        OnManuallyArranged();
         Left += e.HorizontalChange;
         Top += e.VerticalChange;
         KeepInside(desktop);
@@ -188,6 +196,7 @@ public partial class VideoTile : UserControl
     private void ResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
     {
         if (IsMaximized || sender is not Thumb { Tag: string edges }) return;
+        OnManuallyArranged();
 
         double left = Left, top = Top, width = CurrentWidth, height = CurrentHeight;
 
@@ -212,6 +221,13 @@ public partial class VideoTile : UserControl
         Top = Math.Max(0, top);
         Width = width;
         Height = height;
+    }
+
+    private void OnManuallyArranged()
+    {
+        if (!ArrangedByLayout) return;
+        ArrangedByLayout = false;
+        ManuallyArranged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Garde au moins la barre de titre visible dans la zone principale.</summary>

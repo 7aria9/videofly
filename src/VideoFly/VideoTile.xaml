@@ -1,7 +1,7 @@
 <UserControl x:Class="VideoFly.VideoTile"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             MinWidth="400" MinHeight="240"
+             MinWidth="240" MinHeight="160"
              PreviewMouseDown="Tile_PreviewMouseDown">
     <UserControl.Resources>
         <Style x:Key="TileButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
