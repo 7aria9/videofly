@@ -6,10 +6,10 @@ namespace VideoFly;
 /// <summary>Réglages de l'application, enregistrés dans %AppData%\VideoFly\settings.json.</summary>
 public sealed class AppSettings
 {
-    /// <summary>Adapter la fenêtre à la taille de la vidéo à l'ouverture d'un fichier.</summary>
+    /// <summary>Adapter la vignette à la taille de la vidéo à l'ouverture d'un fichier.</summary>
     public bool AutoResizeWindowToVideo { get; set; } = true;
 
-    /// <summary>Volume (0 à 100).</summary>
+    /// <summary>Volume des nouvelles vignettes (0 à 100), mémorisé d'une session à l'autre.</summary>
     public int Volume { get; set; } = 80;
 
     private static string FilePath => Path.Combine(

@@ -36,5 +36,16 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Poignées invisibles pour déplacer / redimensionner les vignettes -->
+        <Style x:Key="InvisibleThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>
