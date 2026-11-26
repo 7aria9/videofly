@@ -115,6 +115,7 @@ public partial class MainWindow : Window
 
         Desktop.Children.Add(tile);
         _tiles.Add(tile);
+        tile.PlayStateChanged += (_, _) => UpdateGlobalPlayPause();
         ActivateTile(tile);
         UpdateEmptyHint();
         ApplyAutoLayout();
@@ -187,6 +188,7 @@ public partial class MainWindow : Window
         }
         if (_tiles.Count == 0) _cascadeIndex = 0;
         UpdateEmptyHint();
+        UpdateGlobalPlayPause();
         ApplyAutoLayout();
     }
 
@@ -562,8 +564,38 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- Clavier / fermeture
 
+    // ---------------------------------------------------------------- Lecture / pause globale
+
+    /// <summary>Si au moins une vignette joue, on met tout en pause ; sinon on relance tout.</summary>
+    private void ToggleAllPlayPause()
+    {
+        if (_tiles.Count == 0) return;
+        if (_tiles.Any(t => t.IsPlaying))
+            foreach (var tile in _tiles) tile.Pause();
+        else
+            foreach (var tile in _tiles) tile.Resume();
+    }
+
+    private void GlobalPlayPause_Click(object sender, RoutedEventArgs e) => ToggleAllPlayPause();
+
+    private void UpdateGlobalPlayPause()
+    {
+        bool anyPlaying = _tiles.Any(t => t.IsPlaying);
+        GlobalPlayPauseButton.IsEnabled = _tiles.Count > 0;
+        GlobalPlayPauseButton.Content = anyPlaying ? VideoTile.GlyphPause : VideoTile.GlyphPlay;
+        GlobalPlayPauseButton.ToolTip = anyPlaying
+            ? "Tout mettre en pause (Ctrl+Espace)"
+            : "Tout lire (Ctrl+Espace)";
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ToggleAllPlayPause();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Space && _activeTile != null)
         {
             _activeTile.TogglePlayPause();

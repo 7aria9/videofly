@@ -60,6 +60,9 @@
                         ToolTip="Fermer" Click="CloseWindow_Click" />
                 <Button x:Name="MaximizeWindowButton" DockPanel.Dock="Right" Style="{StaticResource CaptionButton}"
                         Content="&#xE922;" ToolTip="Agrandir" Click="MaximizeWindow_Click" />
+                <Button x:Name="GlobalPlayPauseButton" DockPanel.Dock="Right" Style="{StaticResource IconButton}"
+                        Content="&#xE768;" ToolTip="Tout lire / tout mettre en pause (Ctrl+Espace)"
+                        Click="GlobalPlayPause_Click" Margin="0,0,8,0" IsEnabled="False" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource CaptionButton}" Content="&#xE921;"
                         ToolTip="Réduire" Click="MinimizeWindow_Click" />
             </DockPanel>

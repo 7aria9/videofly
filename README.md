@@ -15,6 +15,8 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
   - déplacement par la barre de titre, redimensionnement par les bords et les coins
   - agrandir / restaurer (bouton ou double-clic), fermer
   - la vidéo s'adapte à la taille de la vignette
+- Bouton lecture / pause global dans la barre de titre (Ctrl+Espace) : si une vidéo joue, tout se met en pause ;
+  sinon, toutes les vignettes repartent.
 - Dans chaque vignette :
   - lecture / pause (touche Espace pour la vignette active)
   - avance et retour rapides : chaque clic passe à x2, x4, x8, x16, puis revient à la vitesse normale
