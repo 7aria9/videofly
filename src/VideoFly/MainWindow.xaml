@@ -19,6 +19,9 @@
                     <ContextMenu>
                         <MenuItem Header="_Fichier">
                             <MenuItem Header="_Ouvrir une vidéo…" InputGestureText="Ctrl+O" Click="OpenFile_Click" />
+                            <MenuItem x:Name="HistoryMenu" Header="_Historique" SubmenuOpened="HistoryMenu_SubmenuOpened">
+                                <MenuItem Header="…" />
+                            </MenuItem>
                             <MenuItem Header="_Fermer toutes les vignettes" Click="CloseAll_Click" />
                             <Separator />
                             <MenuItem Header="_Quitter" Click="Quit_Click" />

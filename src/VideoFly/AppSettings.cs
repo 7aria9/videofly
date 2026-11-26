@@ -18,6 +18,34 @@ public sealed class AppSettings
     /// <summary>Volume des nouvelles vignettes (0 à 100), mémorisé d'une session à l'autre.</summary>
     public int Volume { get; set; } = 80;
 
+    /// <summary>Historique des vidéos ouvertes, la plus récente en premier.</summary>
+    public List<HistoryEntry> History { get; set; } = new();
+
+    public const int MaxHistory = 20;
+
+    /// <summary>Place la vidéo en tête de l'historique (sans perdre sa dernière position).</summary>
+    public HistoryEntry AddToHistory(string path)
+    {
+        var entry = FindInHistory(path) ?? new HistoryEntry { Path = path };
+        History.Remove(entry);
+        entry.LastOpened = DateTime.Now;
+        History.Insert(0, entry);
+        if (History.Count > MaxHistory) History.RemoveRange(MaxHistory, History.Count - MaxHistory);
+        return entry;
+    }
+
+    public HistoryEntry? FindInHistory(string path) =>
+        History.FirstOrDefault(h => string.Equals(h.Path, path, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Mémorise où on s'est arrêté dans la vidéo.</summary>
+    public void UpdatePosition(string path, long positionMs, long lengthMs)
+    {
+        var entry = FindInHistory(path);
+        if (entry == null) return;
+        entry.PositionMs = positionMs;
+        if (lengthMs > 0) entry.LengthMs = lengthMs;
+    }
+
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VideoFly", "settings.json");
 
@@ -47,4 +75,20 @@ public sealed class AppSettings
             // Pas bloquant si l'enregistrement échoue.
         }
     }
+}
+
+/// <summary>Une vidéo de l'historique.</summary>
+public sealed class HistoryEntry
+{
+    public string Path { get; set; } = "";
+    public DateTime LastOpened { get; set; }
+
+    /// <summary>Dernière position de lecture (0 si la vidéo a été vue jusqu'au bout).</summary>
+    public long PositionMs { get; set; }
+
+    public long LengthMs { get; set; }
+
+    /// <summary>Position où reprendre, ou 0 si ça ne vaut pas la peine (tout début ou toute fin).</summary>
+    public long ResumePositionMs =>
+        PositionMs > 5000 && (LengthMs <= 0 || PositionMs < LengthMs - 10000) ? PositionMs : 0;
 }

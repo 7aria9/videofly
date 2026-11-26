@@ -32,7 +32,8 @@ public partial class MainWindow : Window
     // ---------------------------------------------------------------- Ouverture
 
     /// <summary>Ouvre une vidéo dans une nouvelle vignette.</summary>
-    public void OpenFile(string path, Point? position = null)
+    /// <param name="resume">Reprendre là où on s'était arrêté (ouverture depuis l'historique).</param>
+    public void OpenFile(string path, Point? position = null, bool resume = false)
     {
         if (!File.Exists(path))
         {
@@ -40,7 +41,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var tile = new VideoTile(path, _settings)
+        var history = _settings.AddToHistory(path);
+        _settings.Save();
+
+        var tile = new VideoTile(path, _settings, resume ? history.ResumePositionMs : 0)
         {
             Width = Math.Min(DefaultTileWidth, Math.Max(400, Desktop.ActualWidth)),
             Height = Math.Min(DefaultTileHeight, Math.Max(240, Desktop.ActualHeight)),
@@ -104,8 +108,16 @@ public partial class MainWindow : Window
         tile.SetActive(true);
     }
 
+    private void RememberPosition(VideoTile tile)
+    {
+        var (position, length) = tile.GetPlaybackPosition();
+        _settings.UpdatePosition(tile.FilePath, position, length);
+    }
+
     private void CloseTile(VideoTile tile)
     {
+        RememberPosition(tile);
+        _settings.Save();
         tile.Shutdown();
         Desktop.Children.Remove(tile);
         _tiles.Remove(tile);
@@ -271,6 +283,64 @@ public partial class MainWindow : Window
 
     private void OpenFile_Click(object sender, RoutedEventArgs e) => ShowOpenDialog();
 
+    // ---------------------------------------------------------------- Historique
+
+    private void HistoryMenu_SubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (e.OriginalSource != HistoryMenu) return;
+
+        // Positions à jour pour les vidéos en cours de lecture.
+        foreach (var tile in _tiles) RememberPosition(tile);
+
+        HistoryMenu.Items.Clear();
+        if (_settings.History.Count == 0)
+        {
+            HistoryMenu.Items.Add(new MenuItem { Header = "Aucune vidéo récente", IsEnabled = false });
+            return;
+        }
+
+        foreach (var entry in _settings.History)
+        {
+            bool exists = File.Exists(entry.Path);
+            long resume = entry.ResumePositionMs;
+            string detail = !exists ? "fichier introuvable"
+                : resume > 0 ? $"reprise à {FormatTime(resume)}" + (entry.LengthMs > 0 ? $" / {FormatTime(entry.LengthMs)}" : "")
+                : entry.LastOpened.ToString("dd/MM/yyyy HH:mm");
+
+            var item = new MenuItem
+            {
+                Header = new TextBlock
+                {
+                    Inlines =
+                    {
+                        new System.Windows.Documents.Run(System.IO.Path.GetFileName(entry.Path)),
+                        new System.Windows.Documents.Run("   " + detail) { Foreground = Brushes.Gray },
+                    },
+                },
+                ToolTip = entry.Path,
+                IsEnabled = exists,
+            };
+            string path = entry.Path;
+            item.Click += (_, _) => OpenFile(path, resume: true);
+            HistoryMenu.Items.Add(item);
+        }
+
+        HistoryMenu.Items.Add(new Separator());
+        var clear = new MenuItem { Header = "Effacer l'historique" };
+        clear.Click += (_, _) =>
+        {
+            _settings.History.Clear();
+            _settings.Save();
+        };
+        HistoryMenu.Items.Add(clear);
+    }
+
+    private static string FormatTime(long ms)
+    {
+        var t = TimeSpan.FromMilliseconds(ms);
+        return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss");
+    }
+
     private void CloseAll_Click(object sender, RoutedEventArgs e)
     {
         foreach (var tile in _tiles.ToList()) CloseTile(tile);
@@ -298,6 +368,7 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        foreach (var tile in _tiles) RememberPosition(tile);
         _settings.Save();
         foreach (var tile in _tiles.ToList()) tile.Shutdown();
         _tiles.Clear();

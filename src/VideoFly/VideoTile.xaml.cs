@@ -33,6 +33,7 @@ public partial class VideoTile : UserControl
     private readonly VideoFrameRenderer _renderer;
     private Media? _media;
     private bool _closed;
+    private long _resumeAtMs;   // reprise à la dernière position (historique), appliquée au premier démarrage
 
     // Avance / retour rapide
     private TrickMode _trickMode = TrickMode.None;
@@ -66,7 +67,7 @@ public partial class VideoTile : UserControl
 
     public bool IsMaximized { get; private set; }
 
-    public VideoTile(string path, AppSettings settings)
+    public VideoTile(string path, AppSettings settings, long resumeAtMs = 0)
     {
         InitializeComponent();
         _settings = settings;
@@ -94,6 +95,7 @@ public partial class VideoTile : UserControl
         VolumeSlider.Value = settings.Volume;
 
         _autoSizePending = settings.AutoResizeWindowToVideo;
+        _resumeAtMs = resumeAtMs;
         _media = new Media(App.LibVlc, new Uri(path));
         _player.Play(_media);
     }
@@ -120,6 +122,11 @@ public partial class VideoTile : UserControl
 
     private void OnPlaying()
     {
+        if (_resumeAtMs > 0)
+        {
+            _player.Time = _resumeAtMs;
+            _resumeAtMs = 0;
+        }
         _player.Volume = (int)VolumeSlider.Value;
         UpdatePlayPauseGlyph();
     }
@@ -465,6 +472,15 @@ public partial class VideoTile : UserControl
     // ---------------------------------------------------------------- Fermeture
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Position actuelle et durée (ms). Position 0 si la vidéo est finie.</summary>
+    public (long Position, long Length) GetPlaybackPosition()
+    {
+        if (_closed) return (0, 0);
+        long length = _player.Length;
+        long time = _player.State == VLCState.Ended ? 0 : Math.Max(0, _player.Time);
+        return (time, length);
+    }
 
     /// <summary>Arrête la lecture et libère les ressources VLC.</summary>
     public void Shutdown()
