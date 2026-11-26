@@ -6,7 +6,7 @@
     <StackPanel Margin="16" MinWidth="320">
         <TextBlock Text="Affichage" FontWeight="SemiBold" Margin="0,0,0,8" />
         <CheckBox x:Name="AutoResizeCheck"
-                  Content="Adapter la fenêtre à la taille de la vidéo à l'ouverture" />
+                  Content="Adapter la vignette à la taille de la vidéo à l'ouverture" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="OK" Width="80" IsDefault="True" Click="Ok_Click" Margin="0,0,8,0" />
             <Button Content="Annuler" Width="80" IsCancel="True" />
