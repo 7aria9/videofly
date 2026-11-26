@@ -1,9 +1,12 @@
 # VideoFly
 
+<img src="assets/icon/icon-256.png" width="96" alt="Icône VideoFly">
+
 Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https://github.com/videolan/libvlcsharp)).
 
 ## Fonctionnalités
 
+- Icône dédiée (exécutable, fenêtres, barre des tâches et fichiers associés) ; sources dans `assets/icon/`.
 - Interface sombre et épurée : fenêtre sans cadre Windows (barre de titre intégrée),
   vignettes aux coins arrondis, commandes en surimpression sur la vidéo qui s'effacent
   pendant la lecture et réapparaissent dès qu'on bouge la souris
@@ -59,7 +62,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.5.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.6.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible
