@@ -240,6 +240,7 @@ public partial class VideoTile
     {
         foreach (var path in paths)
         {
+            if (SessionFile.IsSessionFile(path)) continue; // une session ne va pas dans une playlist
             if (MediaFiles.IsPlaylist(path))
             {
                 List<string> inner;

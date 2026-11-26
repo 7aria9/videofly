@@ -45,8 +45,8 @@ public static class MediaFiles
 
     /// <summary>Filtre de la boîte « Ouvrir » pour tous les médias.</summary>
     public static string OpenFilter =>
-        $"Tous les médias|{Pattern(AllExtensions)}|Vidéos|{Pattern(VideoExtensions)}|Audio|{Pattern(AudioExtensions)}" +
-        $"|Playlists|{Pattern(PlaylistExtensions)}|Tous les fichiers|*.*";
+        $"Tous les médias|{Pattern(AllExtensions.Append(SessionFile.Extension))}|Vidéos|{Pattern(VideoExtensions)}" +
+        $"|Audio|{Pattern(AudioExtensions)}|Playlists|{Pattern(PlaylistExtensions)}|{SessionFile.Filter}|Tous les fichiers|*.*";
 
     /// <summary>Filtre pour ajouter des fichiers à une playlist (vidéo et audio).</summary>
     public static string AddToPlaylistFilter =>

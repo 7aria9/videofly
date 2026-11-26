@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private VideoTile? _activeTile;
     private int _zOrder;
     private int _cascadeIndex;
+    private string? _sessionFilePath; // dernière session .flyv ouverte ou enregistrée
 
     public MainWindow()
     {
@@ -28,6 +29,8 @@ public partial class MainWindow : Window
 
         CommandBindings.Add(new CommandBinding(ApplicationCommands.Open, (_, _) => ShowOpenDialog()));
         InputBindings.Add(new KeyBinding(ApplicationCommands.Open, Key.O, ModifierKeys.Control));
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Save, (_, _) => SaveSessionFile()));
+        InputBindings.Add(new KeyBinding(ApplicationCommands.Save, Key.S, ModifierKeys.Control));
     }
 
     // ---------------------------------------------------------------- Ouverture
@@ -56,6 +59,12 @@ public partial class MainWindow : Window
         if (!File.Exists(path))
         {
             MessageBox.Show(this, $"Fichier introuvable :\n{path}", "VideoFly", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (SessionFile.IsSessionFile(path))
+        {
+            OpenSessionFile(path);
             return;
         }
 
@@ -144,8 +153,13 @@ public partial class MainWindow : Window
     {
         var session = _settings.Session;
         if (session == null || session.Count == 0) return;
+        RestoreTiles(session, _settings.AutoLayout);
+    }
 
-        bool autoLayout = _settings.AutoLayout;
+    /// <summary>Recrée les vignettes enregistrées (fichiers disparus ignorés). Renvoie le nombre de vignettes rouvertes.</summary>
+    private int RestoreTiles(IEnumerable<SavedTile> session, bool autoLayout)
+    {
+        int count = 0;
         _settings.AutoLayout = false; // on replace d'abord chaque vignette où elle était
         foreach (var saved in session)
         {
@@ -160,9 +174,89 @@ public partial class MainWindow : Window
                 if (index < 0) saved.PositionMs = 0;
             }
             AddTile(existing, null, saved: saved);
+            count++;
         }
         _settings.AutoLayout = autoLayout;
         ApplyAutoLayout();
+        return count;
+    }
+
+    // ---------------------------------------------------------------- Fichiers de session (.flyv)
+
+    private void SaveSessionFile_Click(object sender, RoutedEventArgs e) => SaveSessionFile();
+
+    private void OpenSessionFile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Title = "Ouvrir une session", Filter = SessionFile.Filter + "|Tous les fichiers|*.*" };
+        if (dialog.ShowDialog(this) == true) OpenSessionFile(dialog.FileName);
+    }
+
+    /// <summary>Enregistre les vignettes ouvertes et la disposition dans un fichier .flyv.</summary>
+    private void SaveSessionFile()
+    {
+        var tiles = _tiles.Where(t => t.Playlist.Items.Count > 0).ToList();
+        if (tiles.Count == 0)
+        {
+            MessageBox.Show(this, "Aucune vidéo ouverte : il n'y a rien à enregistrer.", "VideoFly",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Enregistrer la session",
+            Filter = SessionFile.Filter,
+            DefaultExt = SessionFile.Extension,
+            AddExtension = true,
+            FileName = _sessionFilePath != null ? System.IO.Path.GetFileName(_sessionFilePath) : "Session" + SessionFile.Extension,
+            InitialDirectory = _sessionFilePath != null ? System.IO.Path.GetDirectoryName(_sessionFilePath) : null,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var file = new SessionFile
+        {
+            AutoLayout = _settings.AutoLayout,
+            LayoutId = _settings.LayoutId,
+            Tiles = tiles.Select(t => t.ToSaved()).ToList(),
+        };
+        try
+        {
+            file.Save(dialog.FileName);
+            _sessionFilePath = dialog.FileName;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Impossible d'enregistrer la session :\n{ex.Message}", "VideoFly",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>Ouvre une session .flyv : remplace les vignettes ouvertes par celles du fichier (en pause).</summary>
+    public void OpenSessionFile(string path)
+    {
+        SessionFile file;
+        try
+        {
+            file = SessionFile.Load(path);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Impossible d'ouvrir la session :\n{ex.Message}", "VideoFly",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        foreach (var tile in _tiles.ToList()) CloseTile(tile);
+        if (file.LayoutId != null) _settings.LayoutId = file.LayoutId;
+        int opened = RestoreTiles(file.Tiles, file.AutoLayout);
+        _sessionFilePath = path;
+
+        int missing = file.Tiles.Count - opened;
+        if (missing > 0)
+            MessageBox.Show(this, missing == 1
+                    ? "Une vignette n'a pas pu être rouverte : ses fichiers sont introuvables."
+                    : $"{missing} vignettes n'ont pas pu être rouvertes : leurs fichiers sont introuvables.",
+                "VideoFly", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     /// <summary>À la fermeture : garder ou non les vidéos ouvertes (demande à l'utilisateur si besoin).</summary>

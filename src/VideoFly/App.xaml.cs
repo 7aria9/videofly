@@ -24,6 +24,7 @@ public partial class App : Application
         LibVlc = new LibVLC("--no-video-title-show");
 
         FileAssociations.RefreshIfRegistered();
+        FileAssociations.RegisterSessionExtension();
 
         var window = new MainWindow();
         window.Show();
