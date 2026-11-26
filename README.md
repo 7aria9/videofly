@@ -26,6 +26,9 @@ dotnet build -c Release
 
 ## Compilation automatique
 
-À chaque push / merge sur `main` (et sur chaque pull request), GitHub Actions compile le projet
-et publie un exécutable Windows x64 autonome (pas besoin d'installer .NET).
-Il est téléchargeable dans l'onglet **Actions** du dépôt, artefact `VideoFly-win-x64`.
+À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
+(version `v0.1.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
+
+Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible
+dans l'onglet **Actions**, artefact `VideoFly-win-x64`.
