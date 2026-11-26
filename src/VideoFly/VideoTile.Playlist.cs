@@ -67,6 +67,8 @@ public partial class VideoTile
 
         var old = _media;
         _media = CreateMedia(item.Path, resumeAtMs);
+        _restoreTargetMs = resumeAtMs > 0 ? resumeAtMs : -1;
+        _restoreTicks = 0;
 
         CoverImage.Source = null;
         UpdateViewMode();
@@ -98,6 +100,7 @@ public partial class VideoTile
         if (_current == null) return;
         var old = _media;
         _media = CreateMedia(_current.Path, 0);
+        _restoreTargetMs = -1;
         _player.Stop();
         _player.Play(_media);
         old?.Dispose();
