@@ -9,6 +9,7 @@ public partial class OptionsWindow : Window
     public OptionsWindow(AppSettings settings)
     {
         InitializeComponent();
+        DarkTitleBar.Apply(this);
         _settings = settings;
         AutoResizeCheck.IsChecked = settings.AutoResizeWindowToVideo;
     }
