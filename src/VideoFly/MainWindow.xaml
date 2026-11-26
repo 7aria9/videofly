@@ -23,12 +23,17 @@
                             <Separator />
                             <MenuItem Header="_Quitter" Click="Quit_Click" />
                         </MenuItem>
-                        <MenuItem Header="_Vignettes">
-                            <MenuItem Header="_Mosaïque" Click="Tile_Click" />
-                            <MenuItem Header="_Cascade" Click="Cascade_Click" />
+                        <MenuItem x:Name="LayoutMenu" Header="_Vignettes" SubmenuOpened="LayoutMenu_SubmenuOpened">
+                            <MenuItem Header="…" />
                         </MenuItem>
                         <MenuItem Header="_Options…" Click="Options_Click" />
                     </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Button x:Name="LayoutButton" DockPanel.Dock="Left" Style="{StaticResource IconButton}"
+                    Content="&#xE80A;" ToolTip="Organiser les vignettes" Margin="0,0,6,0" Click="LayoutButton_Click" ContextMenuOpening="LayoutButton_ContextMenuOpening">
+                <Button.ContextMenu>
+                    <ContextMenu />
                 </Button.ContextMenu>
             </Button>
             <TextBlock DockPanel.Dock="Left" Text="VideoFly" Foreground="#AAAAAA" VerticalAlignment="Center"

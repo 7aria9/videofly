@@ -13,8 +13,13 @@ Lecteur de média léger pour Windows, écrit en C# (WPF + [LibVLCSharp](https:/
   - avance et retour rapides : chaque clic passe à x2, x4, x8, x16, puis revient à la vitesse normale
   - boutons précédent / suivant (prévus, sans action pour le moment)
   - réglage du volume et coupure du son, barre de progression
+- Organisation automatique des vignettes pour remplir toute la fenêtre (bouton à côté du menu,
+  ou menu **Vignettes**) : les dispositions proposées dépendent du nombre de vignettes
+  (ex. pour 3 : 1 à gauche + 2 à droite, 1 en haut + 2 en bas, 3 côte à côte, 3 l'une sous l'autre…).
+  La disposition choisie est réappliquée à chaque ouverture, fermeture ou changement de taille de la fenêtre,
+  jusqu'à ce qu'on déplace une vignette à la main.
 - Menu : **Fichier** (ouvrir une ou plusieurs vidéos, Ctrl+O ; fermer toutes les vignettes),
-  **Vignettes** (mosaïque, cascade) et **Options**
+  **Vignettes** (dispositions, cascade) et **Options**
 - À l'ouverture, la vignette s'adapte à la taille de la vidéo (désactivable dans les Options)
 - Glisser-déposer de fichiers vidéo sur la fenêtre
 
