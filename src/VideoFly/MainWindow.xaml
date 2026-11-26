@@ -30,6 +30,10 @@
                                 <MenuItem Header="_Ouvrir…" InputGestureText="Ctrl+O" Click="OpenFile_Click" />
                                 <MenuItem Header="Ouvrir une _playlist…" Click="OpenPlaylist_Click" />
                                 <MenuItem Header="_Nouvelle playlist" Click="NewPlaylist_Click" />
+                                <Separator />
+                                <MenuItem Header="Ouvrir une _session…" Click="OpenSessionFile_Click" />
+                                <MenuItem Header="_Enregistrer la session…" InputGestureText="Ctrl+S" Click="SaveSessionFile_Click" />
+                                <Separator />
                                 <MenuItem x:Name="HistoryMenu" Header="_Historique" SubmenuOpened="HistoryMenu_SubmenuOpened">
                                     <MenuItem Header="…" />
                                 </MenuItem>

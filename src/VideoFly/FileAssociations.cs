@@ -17,6 +17,7 @@ public static class FileAssociations
     private static IEnumerable<string> Extensions => MediaFiles.AllExtensions;
 
     private const string ProgId = "VideoFly.Video";
+    private const string SessionProgId = "VideoFly.Session";
     private const string AppName = "VideoFly";
     private const string CapabilitiesKey = @"Software\VideoFly\Capabilities";
     private const string Classes = @"Software\Classes\";
@@ -24,6 +25,39 @@ public static class FileAssociations
     private static string ExePath => Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "VideoFly.exe");
     private static string ExeName => Path.GetFileName(ExePath);
     private static string OpenCommand => $"\"{ExePath}\" \"%1\"";
+
+    /// <summary>
+    /// Associe l'extension .flyv (sessions VideoFly) à VideoFly : double-clic sur un fichier de session = l'ouvrir.
+    /// Extension propre à VideoFly, donc on peut s'en déclarer le programme par défaut directement.
+    /// Appelé à chaque lancement pour suivre le programme s'il a été déplacé.
+    /// </summary>
+    public static void RegisterSessionExtension()
+    {
+        try
+        {
+            var cu = Registry.CurrentUser;
+            using (var cmd = cu.OpenSubKey(Classes + SessionProgId + @"\shell\open\command"))
+                if (cmd?.GetValue("") as string == OpenCommand) return; // déjà à jour
+
+            using (var progId = cu.CreateSubKey(Classes + SessionProgId))
+            {
+                progId.SetValue("", "Session VideoFly");
+                using (var icon = progId.CreateSubKey("DefaultIcon")) icon.SetValue("", $"\"{ExePath}\",0");
+                using (var cmd = progId.CreateSubKey(@"shell\open\command")) cmd.SetValue("", OpenCommand);
+            }
+            using (var ext = cu.CreateSubKey(Classes + SessionFile.Extension))
+            {
+                ext.SetValue("", SessionProgId);
+                using var openWith = ext.CreateSubKey("OpenWithProgids");
+                openWith.SetValue(SessionProgId, Array.Empty<byte>(), RegistryValueKind.None);
+            }
+            NotifyShell();
+        }
+        catch
+        {
+            // Pas bloquant : on peut toujours ouvrir une session depuis le menu.
+        }
+    }
 
     /// <summary>VideoFly est-il déclaré auprès de Windows ?</summary>
     public static bool IsRegistered()
@@ -80,6 +114,8 @@ public static class FileAssociations
     {
         var cu = Registry.CurrentUser;
         cu.DeleteSubKeyTree(Classes + ProgId, throwOnMissingSubKey: false);
+        cu.DeleteSubKeyTree(Classes + SessionProgId, throwOnMissingSubKey: false);
+        cu.DeleteSubKeyTree(Classes + SessionFile.Extension, throwOnMissingSubKey: false);
         cu.DeleteSubKeyTree(Classes + @"Applications\" + ExeName, throwOnMissingSubKey: false);
         foreach (var ext in Extensions)
         {

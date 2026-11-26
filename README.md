@@ -20,6 +20,9 @@ Lecteur de médias (vidéo et audio) léger pour Windows, écrit en C# (WPF + [L
 - À la fermeture, VideoFly propose de garder les vidéos ouvertes : au lancement suivant, elles sont rouvertes
   à la même place, au même moment (en pause), avec leur playlist, leur volume et la relecture
   (« Ne plus demander », modifiable dans les Options).
+- Sessions `.flyv` : Fichier › Enregistrer la session (Ctrl+S) sauvegarde les vidéos ouvertes, leur place, leur
+  moment de lecture et la disposition ; Fichier › Ouvrir une session (ou double-clic sur le fichier .flyv) les
+  rouvre, en pause, à la place des vignettes ouvertes.
 - Dans chaque vignette :
   - aperçu au survol de la barre de progression : petite image et temps à l'endroit du pointeur
   - relecture automatique activée par défaut (bouton à gauche des commandes) : la vidéo, ou la playlist
@@ -70,7 +73,7 @@ dotnet build -c Release
 ## Compilation automatique
 
 À chaque merge / push sur `main`, GitHub Actions compile le projet et crée une **Release**
-(version `v0.8.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
+(version `v0.9.N`, N = numéro de compilation) avec le zip de l'exécutable Windows x64 autonome
 (pas besoin d'installer .NET). Elle est dans la section **Releases** du dépôt.
 
 Sur chaque pull request, le projet est seulement compilé ; l'exécutable est disponible
