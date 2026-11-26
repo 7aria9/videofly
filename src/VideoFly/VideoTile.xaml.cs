@@ -634,7 +634,7 @@ public partial class VideoTile : UserControl
         long length = _player.Length;
         if (_closed || _media == null || _current == null || length <= 0 || SeekSlider.ActualWidth <= 0)
         {
-            SeekPreviewPopup.IsOpen = false;
+            SeekPreviewBox.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -655,15 +655,22 @@ public partial class VideoTile : UserControl
             _seekPreview.Request(_current.Path, time);
         }
 
-        SeekPreviewPopup.IsOpen = true;
+        // Placé dans la vignette, centré sur le pointeur, au-dessus de la barre, sans dépasser des bords.
+        SeekPreviewBox.Visibility = Visibility.Visible;
         SeekPreviewBox.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double popupWidth = SeekPreviewBox.DesiredSize.Width;
-        SeekPreviewPopup.HorizontalOffset = Math.Clamp(x - popupWidth / 2, -8, SeekSlider.ActualWidth - popupWidth + 8);
+        var size = SeekPreviewBox.DesiredSize;
+        Point sliderTopLeft = SeekSlider.TranslatePoint(new Point(0, 0), SeekPreviewLayer);
+        double layerWidth = SeekPreviewLayer.ActualWidth;
+        double left = sliderTopLeft.X + x - size.Width / 2;
+        left = Math.Max(4, Math.Min(left, layerWidth - size.Width - 4));
+        double top = Math.Max(4, sliderTopLeft.Y - size.Height - 6);
+        Canvas.SetLeft(SeekPreviewBox, left);
+        Canvas.SetTop(SeekPreviewBox, top);
     }
 
     private void SeekSlider_MouseLeave(object sender, MouseEventArgs e)
     {
-        SeekPreviewPopup.IsOpen = false;
+        SeekPreviewBox.Visibility = Visibility.Collapsed;
         _seekPreview?.Release();
     }
 
@@ -734,7 +741,7 @@ public partial class VideoTile : UserControl
         _rewindTimer.Stop();
         _hideTimer.Stop();
         _player.Stop();
-        SeekPreviewPopup.IsOpen = false;
+        SeekPreviewBox.Visibility = Visibility.Collapsed;
         _seekPreview?.Dispose();
         _seekPreview = null;
         _renderer.Dispose();

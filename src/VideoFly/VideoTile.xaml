@@ -170,21 +170,6 @@
                                 PreviewMouseLeftButtonDown="SeekSlider_DragStart"
                                 PreviewMouseLeftButtonUp="SeekSlider_DragEnd"
                                 MouseMove="SeekSlider_MouseMove" MouseLeave="SeekSlider_MouseLeave" />
-                        <!-- Aperçu au survol de la barre de progression -->
-                        <Popup x:Name="SeekPreviewPopup" PlacementTarget="{Binding ElementName=SeekSlider}"
-                               Placement="Top" VerticalOffset="-6" AllowsTransparency="True" IsHitTestVisible="False">
-                            <Border x:Name="SeekPreviewBox" Background="#F016161A" BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="1" CornerRadius="8" Padding="4">
-                                <StackPanel>
-                                    <Border x:Name="SeekPreviewFrame" Width="192" Height="108" CornerRadius="5" Background="Black">
-                                        <Image x:Name="SeekPreviewImage" Stretch="Uniform"
-                                               RenderOptions.BitmapScalingMode="Linear" />
-                                    </Border>
-                                    <TextBlock x:Name="SeekPreviewTime" HorizontalAlignment="Center" FontSize="12"
-                                               FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="6,3,6,1" />
-                                </StackPanel>
-                            </Border>
-                        </Popup>
                         <Grid Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -276,6 +261,21 @@
                         </StackPanel>
                     </Grid>
                 </Border>
+
+                <!-- Aperçu au survol de la barre de progression : dessiné dans la vignette (pas de fenêtre
+                     séparée), il ne peut donc jamais sortir de VideoFly ni passer sur un autre écran. -->
+                <Canvas x:Name="SeekPreviewLayer" IsHitTestVisible="False" ClipToBounds="False">
+                    <Border x:Name="SeekPreviewBox" Visibility="Collapsed" Background="#F016161A"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="4">
+                        <StackPanel>
+                            <Border x:Name="SeekPreviewFrame" Width="192" Height="108" CornerRadius="5" Background="Black">
+                                <Image x:Name="SeekPreviewImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear" />
+                            </Border>
+                            <TextBlock x:Name="SeekPreviewTime" HorizontalAlignment="Center" FontSize="12"
+                                       FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="6,3,6,1" />
+                        </StackPanel>
+                    </Border>
+                </Canvas>
             </Grid>
         </Border>
 
