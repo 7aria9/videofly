@@ -138,9 +138,11 @@
                         </Thumb.ContextMenu>
                     </Thumb>
                     <TextBlock x:Name="TitleText" Text="Vidéo" Foreground="{StaticResource TextBrush}" FontSize="12.5"
-                               FontWeight="SemiBold" VerticalAlignment="Top" Margin="14,10,76,0"
+                               FontWeight="SemiBold" VerticalAlignment="Top" Margin="14,10,106,0"
                                TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,6,0">
+                        <Button x:Name="FullScreenButton" Style="{StaticResource TitleButton}"
+                                Content="&#xE740;" ToolTip="Plein écran (F11)" Click="FullScreenButton_Click" />
                         <Button x:Name="MaximizeButton" Style="{StaticResource TitleButton}"
                                 Content="&#xE922;" ToolTip="Agrandir" Click="MaximizeButton_Click" />
                         <Button Style="{StaticResource TitleButton}"

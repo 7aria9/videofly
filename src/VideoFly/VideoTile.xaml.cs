@@ -104,6 +104,30 @@ public partial class VideoTile : UserControl
         TogglePlayPause();
     }
 
+    /// <summary>Demande de plein écran (bouton, double-clic sur l'image) : la fenêtre principale s'en occupe.</summary>
+    public event EventHandler? FullScreenRequested;
+
+    /// <summary>La vignette occupe tout l'écran.</summary>
+    public bool IsFullScreen { get; private set; }
+
+    private void FullScreenButton_Click(object sender, RoutedEventArgs e) => FullScreenRequested?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>Affichage plein écran : sans cadre ni coins arrondis, bouton « Quitter le plein écran ».</summary>
+    public void SetFullScreen(bool fullScreen)
+    {
+        IsFullScreen = fullScreen;
+        Frame.CornerRadius = new CornerRadius(fullScreen ? 0 : 10);
+        Frame.BorderThickness = new Thickness(fullScreen ? 0 : 1);
+        MaximizeButton.Visibility = fullScreen ? Visibility.Collapsed : Visibility.Visible;
+        FullScreenButton.Content = fullScreen ? "\uE73F" : "\uE740";
+        FullScreenButton.ToolTip = fullScreen ? "Quitter le plein écran (Échap)" : "Plein écran (F11)";
+        double r = fullScreen ? 0 : 9;
+        Surface.Clip = new RectangleGeometry(new Rect(0, 0, Surface.ActualWidth, Surface.ActualHeight), r, r);
+    }
+
+    /// <summary>Remet la vignette à sa taille d'avant l'agrandissement.</summary>
+    public void Unmaximize() => SetMaximized(false);
+
     /// <summary>Fenêtre réduite : on arrête de dessiner les images (le son et la lecture continuent).</summary>
     public void SetRenderingSuspended(bool suspended) => _renderer.SetSuspended(suspended);
 
@@ -193,7 +217,8 @@ public partial class VideoTile : UserControl
     /// <summary>Coins arrondis : on découpe le contenu à la forme du cadre.</summary>
     private void Surface_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        Surface.Clip = new RectangleGeometry(new Rect(0, 0, e.NewSize.Width, e.NewSize.Height), 9, 9);
+        double r = IsFullScreen ? 0 : 9;
+        Surface.Clip = new RectangleGeometry(new Rect(0, 0, e.NewSize.Width, e.NewSize.Height), r, r);
     }
 
     /// <summary>Vignette étroite : on masque le temps et le curseur de volume pour garder les boutons lisibles.</summary>
@@ -214,8 +239,8 @@ public partial class VideoTile : UserControl
 
     private void VideoHost_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Double-clic sur l'image : agrandir / restaurer.
-        if (e.ClickCount == 2) ToggleMaximize();
+        // Double-clic sur l'image : plein écran / sortie du plein écran.
+        if (e.ClickCount == 2) FullScreenRequested?.Invoke(this, EventArgs.Empty);
     }
 
     // ---------------------------------------------------------------- Évènements lecteur
@@ -382,7 +407,10 @@ public partial class VideoTile : UserControl
 
     private void MaximizeButton_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
 
-    private void ToggleMaximize() => SetMaximized(!IsMaximized);
+    private void ToggleMaximize()
+    {
+        if (!IsFullScreen) SetMaximized(!IsMaximized);
+    }
 
     private void SetMaximized(bool maximized)
     {

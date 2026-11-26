@@ -16,12 +16,12 @@
     <Border x:Name="RootBorder" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="44" />
+                <RowDefinition x:Name="TitleRow" Height="44" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <!-- Barre de titre : menu, organisation des vignettes, nom, boutons de fenêtre -->
-            <DockPanel Grid.Row="0" Background="{StaticResource WindowBrush}" LastChildFill="False">
+            <DockPanel x:Name="TitleBar" Grid.Row="0" Background="{StaticResource WindowBrush}" LastChildFill="False">
                 <Button x:Name="MenuButton" DockPanel.Dock="Left" Style="{StaticResource IconButton}"
                         Content="&#xE700;" ToolTip="Menu" Margin="8,0,2,0" Click="MenuButton_Click">
                     <Button.ContextMenu>
@@ -72,7 +72,7 @@
             </DockPanel>
 
             <!-- Zone des vignettes -->
-            <Grid Grid.Row="1" Margin="8,0,8,8">
+            <Grid x:Name="DesktopHost" Grid.Row="1" Margin="8,0,8,8">
                 <!-- Écran d'accueil quand aucune vidéo n'est ouverte -->
                 <StackPanel x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="48"
