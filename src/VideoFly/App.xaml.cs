@@ -21,7 +21,11 @@ public partial class App : Application
         }
 
         Core.Initialize();
-        LibVlc = new LibVLC("--no-video-title-show");
+        // Sortie audio DirectSound : chaque lecteur a son propre volume et son propre muet.
+        // Avec la sortie par défaut (WASAPI / mmdevice), toutes les vignettes partagent la même session audio
+        // Windows : couper le son de l'une, ou le rétablir sur une autre, agissait sur toutes.
+        // Au-delà de 100 %, DirectSound amplifie par logiciel (jusqu'à 250 % comme avant).
+        LibVlc = new LibVLC("--no-video-title-show", "--aout=directsound");
 
         FileAssociations.RefreshIfRegistered();
         FileAssociations.RegisterSessionExtension();
