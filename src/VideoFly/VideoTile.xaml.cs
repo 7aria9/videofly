@@ -146,7 +146,10 @@ public partial class VideoTile : UserControl
         InitializeComponent();
         _settings = settings;
 
-        _player = new MediaPlayer(App.LibVlc) { EnableHardwareDecoding = true };
+        // Décodage logiciel : les images passent de toute façon par la mémoire (rappels vidéo) pour WPF,
+        // et le décodage matériel (D3D11/DXVA) y renvoie souvent des images vertes après une recherche
+        // ou une reprise de lecture.
+        _player = new MediaPlayer(App.LibVlc) { EnableHardwareDecoding = false };
         _renderer = new VideoFrameRenderer(_player, Dispatcher);
         _renderer.SourceChanged += source => VideoImage.Source = source;
         _renderer.VideoSizeChanged += OnVideoSizeKnown;
@@ -884,7 +887,7 @@ public partial class VideoTile : UserControl
         if (Mouse.Captured == SeekSlider) SeekSlider.ReleaseMouseCapture();
     }
 
-    /// <summary>Le curseur suit la souris ; la vidéo est déplacée au plus toutes les 60 ms (et à coup sûr au relâchement).</summary>
+    /// <summary>Le curseur suit la souris ; la vidéo est déplacée au plus toutes les 150 ms (et à coup sûr au relâchement).</summary>
     private void DragTo(MouseEventArgs e, bool force)
     {
         double max = SeekSlider.Maximum;
@@ -906,7 +909,7 @@ public partial class VideoTile : UserControl
         if (length > 0)
             TimeText.Text = $"{Format((long)(value / max * length))} / {Format(length)}";
 
-        if (!force && _sinceDragSeek.IsRunning && _sinceDragSeek.ElapsedMilliseconds < 60) return;
+        if (!force && _sinceDragSeek.IsRunning && _sinceDragSeek.ElapsedMilliseconds < 150) return;
         _sinceDragSeek.Restart();
         if (!_player.IsSeekable) return;
         float position = (float)(value / max);

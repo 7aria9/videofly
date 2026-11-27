@@ -87,7 +87,7 @@ public partial class VideoTile
     /// </summary>
     private Media CreateMedia(string path, long startMs)
     {
-        var media = new Media(App.LibVlc, MediaFiles.ToUri(path));
+        var media = new Media(App.LibVlc, MediaFiles.ToUri(path), ":avcodec-hw=none"); // voir le constructeur de VideoTile (écran vert)
         if (startMs > 0)
             media.AddOption(":start-time=" + (startMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture));
         media.MetaChanged += (_, _) => OnUi(UpdateAudioInfo);
