@@ -784,6 +784,12 @@ public partial class VideoTile : UserControl
 
     private void SeekSlider_MouseMove(object sender, MouseEventArgs e)
     {
+        if (_isSeeking && SeekSlider.IsMouseCaptured)
+        {
+            SeekToPointer(e);
+            SeekPreviewBox.Visibility = Visibility.Collapsed;
+            return;
+        }
         long length = _player.Length;
         // Aperçu au simple survol seulement : pas pendant qu'on fait glisser le curseur de position.
         bool dragging = _isSeeking || e.LeftButton == MouseButtonState.Pressed;
@@ -829,13 +835,35 @@ public partial class VideoTile : UserControl
         _seekPreview?.Release();
     }
 
+    // Glisser sur la barre : on gère nous-mêmes le clic maintenu (capture de la souris), au lieu du
+    // comportement du Slider WPF qui ne fait glisser que si l'on attrape exactement le petit curseur.
+    // Sur une grande vignette (fenêtre agrandie, plein écran), on le ratait presque toujours.
     private void SeekSlider_DragStart(object sender, MouseButtonEventArgs e)
     {
         _isSeeking = true;
         SeekPreviewBox.Visibility = Visibility.Collapsed;
+        SeekSlider.CaptureMouse();
+        SeekToPointer(e);
+        e.Handled = true;
     }
 
-    private void SeekSlider_DragEnd(object sender, MouseButtonEventArgs e) => _isSeeking = false;
+    private void SeekSlider_DragEnd(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isSeeking) return;
+        SeekToPointer(e);
+        _isSeeking = false;
+        if (SeekSlider.IsMouseCaptured) SeekSlider.ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    private void SeekSlider_LostMouseCapture(object sender, MouseEventArgs e) => _isSeeking = false;
+
+    private void SeekToPointer(MouseEventArgs e)
+    {
+        if (SeekSlider.ActualWidth <= 0) return;
+        double x = Math.Clamp(e.GetPosition(SeekSlider).X, 0, SeekSlider.ActualWidth);
+        SeekSlider.Value = x / SeekSlider.ActualWidth * SeekSlider.Maximum;
+    }
 
     private static string Format(long ms)
     {
