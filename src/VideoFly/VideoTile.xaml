@@ -183,7 +183,8 @@
                                 ValueChanged="SeekSlider_ValueChanged"
                                 PreviewMouseLeftButtonDown="SeekSlider_DragStart"
                                 PreviewMouseLeftButtonUp="SeekSlider_DragEnd"
-                                MouseMove="SeekSlider_MouseMove" MouseLeave="SeekSlider_MouseLeave" />
+                                MouseMove="SeekSlider_MouseMove" MouseLeave="SeekSlider_MouseLeave"
+                                LostMouseCapture="SeekSlider_LostMouseCapture" />
                         <Grid Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
