@@ -38,7 +38,6 @@ public partial class VideoTile : UserControl
     private bool _startPaused;   // session restaurée : on se place au bon moment puis on reste en pause
     private long _restoreTargetMs = -1; // moment à atteindre (reprise) tant qu'il n'est pas confirmé
     private int _restoreTicks;          // tentatives de vérification de la reprise
-    private bool _muteAfterRestore;     // son coupé voulu une fois la reprise faite
     private bool? _pendingMute;  // le son ne peut être coupé qu'une fois la lecture lancée   // reprise à la dernière position (historique), appliquée au premier démarrage
 
     // Avance / retour rapide
@@ -257,20 +256,11 @@ public partial class VideoTile : UserControl
 
     private void OnPlaying()
     {
-        _player.Volume = (int)VolumeSlider.Value;
-        bool wantMute = _pendingMute ?? _player.Mute;
+        if (_pendingMute is bool pending) _muted = pending;
         _pendingMute = null;
-        if (_startPaused)
-        {
-            // Session restaurée : on reste muet le temps d'atteindre le bon moment, puis on met en pause.
-            _muteAfterRestore = wantMute;
-            _player.Mute = true;
-        }
-        else
-        {
-            _player.Mute = wantMute;
-        }
-        UpdateMuteGlyph();
+        // Session restaurée : on reste silencieux le temps d'atteindre le bon moment, puis on met en pause.
+        _silentWhileRestoring = _startPaused;
+        ApplyAudio();
         CheckRestorePosition();
         UpdatePlayPauseGlyph();
         UpdateAudioInfo();
@@ -465,8 +455,8 @@ public partial class VideoTile : UserControl
     {
         if (!_startPaused) return;
         _startPaused = false;
-        _player.Mute = _muteAfterRestore;
-        UpdateMuteGlyph();
+        _silentWhileRestoring = false;
+        ApplyAudio();
     }
 
     public void TogglePlayPause()
@@ -625,9 +615,8 @@ public partial class VideoTile : UserControl
         int volume = (int)Math.Round(e.NewValue);
         if (_player != null)
         {
-            _player.Volume = volume;
-            if (_player.Mute && volume > 0) _player.Mute = false;
-            UpdateMuteGlyph();
+            if (_muted && volume > 0 && !_restoringVolume) _muted = false; // monter le volume rétablit le son
+            ApplyAudio();
         }
         if (_settings != null) _settings.Volume = volume;
         UpdateVolumeText();
@@ -666,8 +655,8 @@ public partial class VideoTile : UserControl
         double next = current + (wheelDelta > 0 ? 5 : -5);
         if ((current < 100 && next > 100) || (current > 100 && next < 100)) next = 100;
         VolumeSlider.Value = Math.Clamp(next, VolumeSlider.Minimum, VolumeSlider.Maximum);
-        if (_player.Mute && wheelDelta > 0) _player.Mute = false;
-        UpdateMuteGlyph();
+        if (_muted && wheelDelta > 0) _muted = false;
+        ApplyAudio();
     }
 
     private readonly DispatcherTimer _volumeBadgeTimer = new() { Interval = TimeSpan.FromSeconds(1.2) };
@@ -675,7 +664,7 @@ public partial class VideoTile : UserControl
     private void ShowVolumeBadge()
     {
         int volume = (int)Math.Round(VolumeSlider.Value);
-        bool muted = _player.Mute || volume == 0;
+        bool muted = _muted || volume == 0;
         VolumeBadgeIcon.Text = muted ? GlyphMute : GlyphVolume;
         VolumeBadgeText.Text = $"{volume} %";
         VolumeBadgeText.Foreground = (Brush)FindResource(volume > 100 ? "AccentBrush" : "TextBrush");
@@ -692,17 +681,33 @@ public partial class VideoTile : UserControl
         VolumeBadge.Visibility = Visibility.Collapsed;
     }
 
+    // Son coupé : c'est NOTRE état qui fait foi, pas _player.Mute (LibVLC répond « non muet » tant qu'aucune
+    // sortie audio n'est ouverte, avant la lecture ou après un arrêt : basculer à partir de là ne coupait rien).
+    private bool _muted;
+    private bool _silentWhileRestoring;   // restauration de session : silencieux jusqu'à la mise en pause
+    private bool _restoringVolume;        // volume réglé par la restauration : ne rétablit pas le son
+
     private void MuteButton_Click(object sender, RoutedEventArgs e)
     {
-        _player.Mute = !_player.Mute;
+        _muted = !_muted;
+        ApplyAudio();
+    }
+
+    /// <summary>Applique au lecteur l'état voulu (muet ou volume du curseur) et met à jour l'icône.</summary>
+    private void ApplyAudio()
+    {
+        if (_closed) return;
+        bool silent = _muted || _silentWhileRestoring;
+        _player.Mute = silent;
+        _player.Volume = silent ? 0 : (int)Math.Round(VolumeSlider.Value); // double sécurité si le muet est ignoré
         UpdateMuteGlyph();
     }
 
     private void UpdateMuteGlyph()
     {
-        bool muted = _player.Mute || VolumeSlider.Value <= 0;
+        bool muted = _muted || VolumeSlider.Value <= 0;
         MuteButton.Content = muted ? GlyphMute : GlyphVolume;
-        MuteButton.ToolTip = _player.Mute ? "Rétablir le son" : "Couper le son";
+        MuteButton.ToolTip = _muted ? "Rétablir le son" : "Couper le son";
     }
 
     // ---------------------------------------------------------------- Barre de progression
@@ -755,8 +760,8 @@ public partial class VideoTile : UserControl
         {
             _startPaused = false;
             _player.SetPause(true);
-            _player.Mute = _muteAfterRestore;
-            UpdateMuteGlyph();
+            _silentWhileRestoring = false;
+            ApplyAudio();
         }
     }
 
@@ -956,7 +961,7 @@ public partial class VideoTile : UserControl
             Height = bounds.Height,
             Maximized = IsMaximized,
             Volume = (int)Math.Round(VolumeSlider.Value),
-            Muted = !_closed && _player.Mute,
+            Muted = _muted,
             Repeat = _repeat,
         };
     }
@@ -967,7 +972,10 @@ public partial class VideoTile : UserControl
         _autoSizePending = false; // on garde la taille enregistrée
         _startPaused = true;
         _pendingMute = saved.Muted;
+        _muted = saved.Muted;
+        _restoringVolume = true;
         VolumeSlider.Value = Math.Clamp(saved.Volume, 0, (int)VolumeSlider.Maximum);
+        _restoringVolume = false;
         SetRepeat(saved.Repeat);
     }
 
