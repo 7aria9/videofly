@@ -168,6 +168,7 @@ public partial class VideoTile : UserControl
         UpdateVolumeText();
         _autoSizePending = settings.AutoResizeWindowToVideo;
 
+        InitSeekDrag();
         InitPlaylist(paths);
     }
 
@@ -759,11 +760,11 @@ public partial class VideoTile : UserControl
     private void UpdateProgress()
     {
         if (_restoreTargetMs >= 0 || _startPaused) CheckRestorePosition();
+        if (_isSeeking) return; // pendant le glisser, le curseur et le temps suivent la souris
         long length = _player.Length;
         long time = Math.Max(0, _player.Time);
         TimeText.Text = $"{Format(time)} / {Format(Math.Max(0, length))}";
 
-        if (_isSeeking) return;
         _updatingSeekSlider = true;
         SeekSlider.Value = length > 0 ? _player.Position * SeekSlider.Maximum : 0;
         _updatingSeekSlider = false;
@@ -784,12 +785,6 @@ public partial class VideoTile : UserControl
 
     private void SeekSlider_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_isSeeking && SeekSlider.IsMouseCaptured)
-        {
-            SeekToPointer(e);
-            SeekPreviewBox.Visibility = Visibility.Collapsed;
-            return;
-        }
         long length = _player.Length;
         // Aperçu au simple survol seulement : pas pendant qu'on fait glisser le curseur de position.
         bool dragging = _isSeeking || e.LeftButton == MouseButtonState.Pressed;
@@ -835,34 +830,89 @@ public partial class VideoTile : UserControl
         _seekPreview?.Release();
     }
 
-    // Glisser sur la barre : on gère nous-mêmes le clic maintenu (capture de la souris), au lieu du
-    // comportement du Slider WPF qui ne fait glisser que si l'on attrape exactement le petit curseur.
-    // Sur une grande vignette (fenêtre agrandie, plein écran), on le ratait presque toujours.
+    // Glisser sur la barre de progression.
+    // Le Slider WPF ne convient pas ici : avec IsMoveToPointEnabled, son propre gestionnaire marque le clic
+    // comme traité (nos gestionnaires XAML ne le voyaient même pas) et il ne suit la souris que si l'on attrape
+    // exactement la petite pastille, invisible au repos. On gère donc tout nous-mêmes : gestionnaires abonnés
+    // même aux évènements déjà traités, capture de la souris, et position calculée depuis la piste.
+    private readonly System.Diagnostics.Stopwatch _sinceDragSeek = new();
+
+    private void InitSeekDrag()
+    {
+        SeekSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(SeekSlider_DragStart), true);
+        SeekSlider.AddHandler(PreviewMouseMoveEvent, new MouseEventHandler(SeekSlider_DragMove), true);
+        SeekSlider.AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(SeekSlider_DragEnd), true);
+        SeekSlider.AddHandler(LostMouseCaptureEvent, new MouseEventHandler(SeekSlider_LostMouseCapture), true);
+    }
+
     private void SeekSlider_DragStart(object sender, MouseButtonEventArgs e)
     {
+        e.Handled = true; // ni la piste, ni la pastille, ni les boutons de la piste ne s'en mêlent
+        if (_closed || _media == null) return;
         _isSeeking = true;
         SeekPreviewBox.Visibility = Visibility.Collapsed;
-        SeekSlider.CaptureMouse();
-        SeekToPointer(e);
+        Mouse.Capture(SeekSlider, CaptureMode.Element);
+        DragTo(e, force: true);
+    }
+
+    private void SeekSlider_DragMove(object sender, MouseEventArgs e)
+    {
+        if (!_isSeeking) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { EndSeekDrag(); return; } // relâché hors de la fenêtre
         e.Handled = true;
+        DragTo(e, force: false);
     }
 
     private void SeekSlider_DragEnd(object sender, MouseButtonEventArgs e)
     {
         if (!_isSeeking) return;
-        SeekToPointer(e);
-        _isSeeking = false;
-        if (SeekSlider.IsMouseCaptured) SeekSlider.ReleaseMouseCapture();
         e.Handled = true;
+        DragTo(e, force: true);
+        EndSeekDrag();
     }
 
-    private void SeekSlider_LostMouseCapture(object sender, MouseEventArgs e) => _isSeeking = false;
-
-    private void SeekToPointer(MouseEventArgs e)
+    private void SeekSlider_LostMouseCapture(object sender, MouseEventArgs e)
     {
-        if (SeekSlider.ActualWidth <= 0) return;
-        double x = Math.Clamp(e.GetPosition(SeekSlider).X, 0, SeekSlider.ActualWidth);
-        SeekSlider.Value = x / SeekSlider.ActualWidth * SeekSlider.Maximum;
+        // Évènement remonté depuis la pastille ou la piste : ce n'est pas notre capture.
+        if (!ReferenceEquals(e.OriginalSource, SeekSlider)) return;
+        _isSeeking = false;
+    }
+
+    private void EndSeekDrag()
+    {
+        _isSeeking = false;
+        if (Mouse.Captured == SeekSlider) SeekSlider.ReleaseMouseCapture();
+    }
+
+    /// <summary>Le curseur suit la souris ; la vidéo est déplacée au plus toutes les 60 ms (et à coup sûr au relâchement).</summary>
+    private void DragTo(MouseEventArgs e, bool force)
+    {
+        double max = SeekSlider.Maximum;
+        double value;
+        if (SeekSlider.Template?.FindName("PART_Track", SeekSlider) is Track track && track.ActualWidth > 0)
+            value = track.ValueFromPoint(e.GetPosition(track));
+        else if (SeekSlider.ActualWidth > 0)
+            value = e.GetPosition(SeekSlider).X / SeekSlider.ActualWidth * max;
+        else
+            return;
+        if (double.IsNaN(value) || double.IsInfinity(value)) return;
+        value = Math.Clamp(value, 0, max);
+
+        _updatingSeekSlider = true;
+        SeekSlider.Value = value;
+        _updatingSeekSlider = false;
+
+        long length = _player.Length;
+        if (length > 0)
+            TimeText.Text = $"{Format((long)(value / max * length))} / {Format(length)}";
+
+        if (!force && _sinceDragSeek.IsRunning && _sinceDragSeek.ElapsedMilliseconds < 60) return;
+        _sinceDragSeek.Restart();
+        if (!_player.IsSeekable) return;
+        float position = (float)(value / max);
+        _player.Position = position;
+        if (_trickMode == TrickMode.Rewind)
+            _rewindPosMs = position * length;
     }
 
     private static string Format(long ms)

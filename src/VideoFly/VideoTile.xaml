@@ -180,11 +180,9 @@
                     </Grid.Background>
                     <StackPanel Margin="12,28,12,8">
                         <Slider x:Name="SeekSlider" Style="{StaticResource ModernSlider}" Minimum="0" Maximum="1000"
+                                IsMoveToPointEnabled="False"
                                 ValueChanged="SeekSlider_ValueChanged"
-                                PreviewMouseLeftButtonDown="SeekSlider_DragStart"
-                                PreviewMouseLeftButtonUp="SeekSlider_DragEnd"
-                                MouseMove="SeekSlider_MouseMove" MouseLeave="SeekSlider_MouseLeave"
-                                LostMouseCapture="SeekSlider_LostMouseCapture" />
+                                MouseMove="SeekSlider_MouseMove" MouseLeave="SeekSlider_MouseLeave" />
                         <Grid Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
