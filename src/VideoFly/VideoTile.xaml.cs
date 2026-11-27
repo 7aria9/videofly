@@ -770,6 +770,7 @@ public partial class VideoTile : UserControl
         if (_restoreTargetMs >= 0 || _startPaused) CheckRestorePosition();
         if (_isSeeking) return; // pendant le glisser, le curseur et le temps suivent la souris
         long length = _player.Length;
+        if (IsHoldingSeekTarget(length)) return;
         long time = Math.Max(0, _player.Time);
         TimeText.Text = $"{Format(time)} / {Format(Math.Max(0, length))}";
 
@@ -886,8 +887,38 @@ public partial class VideoTile : UserControl
         _isSeeking = false;
     }
 
+    // Après un clic ou un glisser, LibVLC met un moment à atteindre le nouvel endroit : pendant ce temps il
+    // annonce encore l'ancienne position (ou une position intermédiaire), et le curseur sautait ailleurs avant
+    // de revenir sous la souris. On garde donc le curseur à l'endroit cliqué jusqu'à ce que la lecture y soit.
+    private double _seekHoldValue = -1;
+    private readonly System.Diagnostics.Stopwatch _seekHoldTime = new();
+
+    private bool IsHoldingSeekTarget(long length)
+    {
+        if (_seekHoldValue < 0) return false;
+        double max = SeekSlider.Maximum;
+        long targetMs = (long)(_seekHoldValue / max * length);
+        bool arrived = length > 0 && Math.Abs(_player.Time - targetMs) <= 1500;
+        bool stopped = _player.State is VLCState.Ended or VLCState.Stopped or VLCState.Error;
+        if (arrived || stopped || length <= 0 || _seekHoldTime.ElapsedMilliseconds > 3000)
+        {
+            _seekHoldValue = -1;
+            return false;
+        }
+        _updatingSeekSlider = true;
+        SeekSlider.Value = _seekHoldValue;
+        _updatingSeekSlider = false;
+        TimeText.Text = $"{Format(targetMs)} / {Format(length)}";
+        return true;
+    }
+
     private void EndSeekDrag()
     {
+        if (_isSeeking)
+        {
+            _seekHoldValue = SeekSlider.Value;
+            _seekHoldTime.Restart();
+        }
         _isSeeking = false;
         if (Mouse.Captured == SeekSlider) SeekSlider.ReleaseMouseCapture();
     }
